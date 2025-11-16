@@ -19,6 +19,7 @@
 #include <ctime>
 
 FILE* s_benchmark_frag_log_file = nullptr;
+FILE* s_benchmark_tests_log_file = nullptr;
 
 int main(int argc, char** argv) {
   srand(time(nullptr));
@@ -26,6 +27,10 @@ int main(int argc, char** argv) {
 
   if (s_benchmark_frag_log_file != nullptr) {
     fclose(s_benchmark_frag_log_file);
+  }
+
+  if (s_benchmark_tests_log_file != nullptr) {
+    fclose(s_benchmark_tests_log_file);
   }
 
   return ret;

@@ -124,11 +124,9 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
     const bool isNodeFree = is_node_free(node);
 
     EMALLOC_STATS_INC_IF(1);
-
     if (isNodeFree) {
       EMALLOC_STATS_INC_RDWR(1);
       EMALLOC_STATS_INC_IF(1);
-
       if (node->alloc_info >= a_size) {
         return (int32_t)i;
       }
@@ -154,10 +152,8 @@ static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
 
     for (uint32_t j = 0; j < (a_emalloc_ctx->node_count - i - 1); ++j) {
       EMALLOC_STATS_INC_LOOPS(1);
-
       EMALLOC_STATS_INC_RDWR(2);
       EMALLOC_STATS_INC_IF(1);
-
       if (nodes[j].offset > nodes[j + 1].offset) {
         sEMALLOC_node temp = nodes[j];
         nodes[j] = nodes[j + 1];
@@ -257,13 +253,11 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
     nodes[node_count].offset = (offset + a_alloc_size) | EMALLOC_NODE_FREE;
     nodes[node_count].alloc_info = nodes[idx].alloc_info - a_alloc_size;
 
-    EMALLOC_STATS_INC_RDWR(3);
+    EMALLOC_STATS_INC_RDWR(3 + 2);
 
     a_emalloc_ctx->node_count++;
 
     nodes[idx].alloc_info = a_alloc_size;
-
-    EMALLOC_STATS_INC_RDWR(2);
   }
 
   nodes[idx].offset |= EMALLOC_NODE_VARIABLE_SIZE;
