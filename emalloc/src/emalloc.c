@@ -17,6 +17,10 @@
 #include "../include/emalloc/emalloc.h"
 #include <stdbool.h>
 
+#if (EMALLOC_STATISTICS == 1)
+#include <string.h>
+#endif
+
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
 
@@ -41,6 +45,36 @@ typedef struct s_emalloc_node {
   /// size or bitmask
   uint32_t alloc_info;
 } sEMALLOC_node;
+
+#if (EMALLOC_STATISTICS == 1)
+static sEMALLOC_statistics s_stats;
+static sEMALLOC_operation_stats* s_pOpStats = NULL;
+
+#define EMALLOC_STATS_INC_IF(n)                               \
+  if (s_pOpStats->n_ifs < (0xFFFFFFFFFFFFFFFF - ((n) - 1))) { \
+    s_pOpStats->n_ifs += (n);                                 \
+  }
+
+#define EMALLOC_STATS_INC_LOOPS(n)                              \
+  if (s_pOpStats->n_loops < (0xFFFFFFFFFFFFFFFF - ((n) - 1))) { \
+    s_pOpStats->n_loops += (n);                                 \
+  }
+
+#define EMALLOC_STATS_INC_RDWR(n)                                     \
+  if (s_pOpStats->n_nodes_rd_wr < (0xFFFFFFFFFFFFFFFF - ((n) - 1))) { \
+    s_pOpStats->n_nodes_rd_wr += (n);                                 \
+  }
+
+#define EMALLOC_STATS_INC_CALLS(n)                      \
+  if (s_pOpStats->n_calls < (0xFFFFFFFF - ((n) - 1))) { \
+    s_pOpStats->n_calls += (n);                         \
+  }
+#else
+#define EMALLOC_STATS_INC_IF(n)
+#define EMALLOC_STATS_INC_LOOPS(n)
+#define EMALLOC_STATS_INC_RDWR(n)
+#define EMALLOC_STATS_INC_CALLS(n)
+#endif
 
 uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
                       const sEMALLOC_cfg* a_emalloc_configuration) {
@@ -75,6 +109,7 @@ uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
 }
 
 static bool is_node_free(const sEMALLOC_node* a_node) {
+  EMALLOC_STATS_INC_RDWR(1);
   return (a_node->offset & EMALLOC_ALLOC_INFO_MASK) == EMALLOC_NODE_FREE;
 }
 
@@ -84,14 +119,24 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
   uint32_t i = 0;
 
   for (; i < a_emalloc_ctx->node_count; ++i) {
+    EMALLOC_STATS_INC_LOOPS(1);
+
     const bool isNodeFree = is_node_free(node);
+
+    EMALLOC_STATS_INC_IF(1);
+
     if (isNodeFree) {
+      EMALLOC_STATS_INC_RDWR(1);
+      EMALLOC_STATS_INC_IF(1);
+
       if (node->alloc_info >= a_size) {
         return (int32_t)i;
       }
     }
     node++;
   }
+
+  EMALLOC_STATS_INC_IF(1);
 
   if (i == a_emalloc_ctx->nodes_poll_length) {
     return -2;
@@ -105,11 +150,20 @@ static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   for (uint32_t i = 0; i < (a_emalloc_ctx->node_count - 1); ++i) {
+    EMALLOC_STATS_INC_LOOPS(1);
+
     for (uint32_t j = 0; j < (a_emalloc_ctx->node_count - i - 1); ++j) {
+      EMALLOC_STATS_INC_LOOPS(1);
+
+      EMALLOC_STATS_INC_RDWR(2);
+      EMALLOC_STATS_INC_IF(1);
+
       if (nodes[j].offset > nodes[j + 1].offset) {
         sEMALLOC_node temp = nodes[j];
         nodes[j] = nodes[j + 1];
         nodes[j + 1] = temp;
+
+        EMALLOC_STATS_INC_RDWR(4 * 2);
       }
     }
   }
@@ -122,16 +176,28 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   for (uint32_t i = 0; i < a_emalloc_ctx->node_count - 1; i++) {
+    EMALLOC_STATS_INC_LOOPS(1);
+    EMALLOC_STATS_INC_IF(1);
+
     if (is_node_free(&nodes[i]) && is_node_free(&nodes[i + 1])) {
-      if (nodes[i].offset + nodes[i].alloc_info == nodes[i + 1].offset) {
+      EMALLOC_STATS_INC_IF(1);
+      EMALLOC_STATS_INC_RDWR(3);
+
+      if ((nodes[i].offset + nodes[i].alloc_info) == nodes[i + 1].offset) {
         // Merge nodes
         nodes[i].alloc_info += nodes[i + 1].alloc_info;
+        EMALLOC_STATS_INC_RDWR(2);
 
         // Shift remaining nodes
         for (uint32_t j = i + 1; j < (a_emalloc_ctx->node_count - 1); ++j) {
+          EMALLOC_STATS_INC_LOOPS(1);
+
           nodes[j] = nodes[j + 1];
+          EMALLOC_STATS_INC_RDWR(2 * 2);
         }
+
         a_emalloc_ctx->node_count--;
+        EMALLOC_STATS_INC_RDWR(1);
 
         i--;  // Check again in case of multiple adjacent free nodes
       }
@@ -140,25 +206,36 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx) {
 }
 
 uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
+#if (EMALLOC_STATISTICS == 1)
+  s_pOpStats = &s_stats.alloc;
+  EMALLOC_STATS_INC_CALLS(1);
+#endif
+
+  EMALLOC_STATS_INC_IF(1);
   if (a_alloc_size == 0) {
     return EMALLOC_ERR_ZERO_REQUESTED;
   }
 
+  EMALLOC_STATS_INC_IF(1);
   if (a_alloc_size > a_emalloc_ctx->external_memory_size_bytes) {
     return EMALLOC_ERR_INVALID_PARAMETER;  // Error value
   }
 
+  EMALLOC_STATS_INC_IF(1);
   if ((a_alloc_size & ((1 << EMALLOC_MIN_ALLOC_SHIFTS) - 1)) != 0) {
     a_alloc_size = ((a_alloc_size >> EMALLOC_MIN_ALLOC_SHIFTS) + 1)
                    << EMALLOC_MIN_ALLOC_SHIFTS;
+    EMALLOC_STATS_INC_RDWR(1);
   }
 
   const int32_t idx = find_free_node(a_emalloc_ctx, a_alloc_size);
 
+  EMALLOC_STATS_INC_IF(1);
   if (idx == -1) {
     return EMALLOC_ERR_NO_EXTERNAL_MEMORY;
   }
 
+  EMALLOC_STATS_INC_IF(1);
   if (idx == -2) {
     return EMALLOC_ERR_NO_MORE_FREE_NODES;
   }
@@ -166,40 +243,62 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   const uint32_t offset = nodes[idx].offset & ~EMALLOC_ALLOC_INFO_MASK;
+  EMALLOC_STATS_INC_RDWR(1);
 
   // Split node if there's leftover space
   const uint32_t node_count = a_emalloc_ctx->node_count;
+
+  EMALLOC_STATS_INC_RDWR(3);
+  EMALLOC_STATS_INC_IF(2);
+
   if ((node_count < a_emalloc_ctx->nodes_poll_length) &&
       (nodes[idx].alloc_info > a_alloc_size)) {
     // Create new node for remainder
     nodes[node_count].offset = (offset + a_alloc_size) | EMALLOC_NODE_FREE;
     nodes[node_count].alloc_info = nodes[idx].alloc_info - a_alloc_size;
 
+    EMALLOC_STATS_INC_RDWR(3);
+
     a_emalloc_ctx->node_count++;
 
     nodes[idx].alloc_info = a_alloc_size;
+
+    EMALLOC_STATS_INC_RDWR(2);
   }
 
   nodes[idx].offset |= EMALLOC_NODE_VARIABLE_SIZE;
 
   a_emalloc_ctx->external_allocated_bytes += a_alloc_size;
 
+  EMALLOC_STATS_INC_RDWR(2);
+
   return offset;
 }
 
 uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
                       uint32_t a_allocated_offset) {
+#if (EMALLOC_STATISTICS == 1)
+  s_pOpStats = &s_stats.free;
+  EMALLOC_STATS_INC_CALLS(1);
+#endif
+
   sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   for (uint32_t i = 0; i < a_emalloc_ctx->node_count; ++i) {
+    EMALLOC_STATS_INC_LOOPS(1);
+
     const uint32_t nodeOffset = node->offset & ~EMALLOC_ALLOC_INFO_MASK;
 
+    EMALLOC_STATS_INC_RDWR(1);
+    EMALLOC_STATS_INC_IF(2);
     if ((nodeOffset == a_allocated_offset) && !is_node_free(node)) {
       // Free node
       node->offset = nodeOffset;
       node->offset |= EMALLOC_NODE_FREE;
 
       a_emalloc_ctx->external_allocated_bytes -= node->alloc_info;
+
+      EMALLOC_STATS_INC_RDWR(3);
 
       coalesce(a_emalloc_ctx);
 
@@ -211,6 +310,18 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
 
   return EMALLOC_ERR_OFFSET_NOT_FOUND;
 }
+
+#if (EMALLOC_STATISTICS == 1)
+void emalloc_reset_statistics() {
+  memset(&s_stats, 0, sizeof(s_stats));
+}
+
+void emalloc_get_statistics(sEMALLOC_statistics* a_out_statistics) {
+  if (a_out_statistics) {
+    *a_out_statistics = s_stats;
+  }
+}
+#endif
 
 // EOF
 // /////////////////////////////////////////////////////////////////////////////

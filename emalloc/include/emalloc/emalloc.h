@@ -27,6 +27,10 @@ extern "C" {
 
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
+#ifndef EMALLOC_STATISTICS
+#define EMALLOC_STATISTICS 0
+#endif
+
 typedef struct s_emalloc_config {
   uint64_t* nodes_poll;                 ///< each node size is 8 bytes
   uint32_t nodes_poll_length;           ///< number of nodes in the nodes_poll
@@ -82,6 +86,23 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size);
  * @retval if return EMALLOC_ERR_MASK is no zero, it is an error. Check defines EMALLOC_ERR_*
  */
 uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_allocated_offset);
+
+#if (EMALLOC_STATISTICS == 1)
+typedef struct s_emalloc_operation_stats {
+  uint32_t n_calls;
+  uint64_t n_ifs;
+  uint64_t n_loops;
+  uint64_t n_nodes_rd_wr;  ///< read or write of 4 bytes
+} sEMALLOC_operation_stats;
+
+typedef struct s_emalloc_stats {
+  sEMALLOC_operation_stats alloc;
+  sEMALLOC_operation_stats free;
+} sEMALLOC_statistics;
+
+void emalloc_reset_statistics();
+void emalloc_get_statistics(sEMALLOC_statistics* a_out_statistics);
+#endif
 
 #ifdef __cplusplus
 }
