@@ -21,7 +21,9 @@ enable_testing()
 
 # Test files
 set(TEST_SOURCES
-    main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_init.cpp
+    main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_init.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_fragmentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_alloc_free.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/benchmark_fragmentation.cpp)
 

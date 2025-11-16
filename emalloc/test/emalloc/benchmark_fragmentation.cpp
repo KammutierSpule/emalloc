@@ -20,13 +20,14 @@
 #include <emalloc/emalloc.h>
 #include <cstdio>
 #include <random>
+#include <vector>
 
 extern FILE* s_benchmark_frag_log_file;
 
 // clang-format off
 // NOLINTBEGIN
 TEST_GROUP( BenchmarkFragmentation ){
-  static const uint32_t EXT_RAM_SIZE = 32*1024*1024;
+  static const uint32_t EXT_RAM_SIZE = 1*1024*1024;
   static const uint32_t MAX_NODES = EXT_RAM_SIZE / 16;
 
   uint64_t nodes_poll[MAX_NODES];
@@ -52,10 +53,9 @@ TEST_GROUP( BenchmarkFragmentation ){
         "remain_size",
         "%",
         "ExtAlloc",
-        "Diff",
+        "Wasted",
         "Nodes");
     }
-
 
     random_generator = new std::mt19937(random_device());
 
@@ -88,15 +88,17 @@ TEST_GROUP( BenchmarkFragmentation ){
       emalloc_ctx.node_count);
   }
 };
+// NOLINTEND
+// clang-format on
 
 TEST(BenchmarkFragmentation, RandomFullRemainRange) {
-  fprintf( s_benchmark_frag_log_file,"%16s", "RandomFullRange");
+  fprintf(s_benchmark_frag_log_file, "%16s", "RandomFullRange");
 
-  while(requested_size < EXT_RAM_SIZE) {
-    std::uniform_int_distribution<> dist(0, static_cast<uint32_t>(remain_size));
+  while (requested_size < EXT_RAM_SIZE) {
+    std::uniform_int_distribution<> dist(0, static_cast<int32_t>(remain_size));
     const uint32_t req_size = dist(*random_generator);
 
-    uint32_t offset = emalloc_alloc(&emalloc_ctx,req_size);
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
     CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
 
     if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
@@ -104,17 +106,17 @@ TEST(BenchmarkFragmentation, RandomFullRemainRange) {
     }
 
     requested_size += req_size;
-    remain_size -=  req_size;
+    remain_size -= req_size;
   }
 }
 
 TEST(BenchmarkFragmentation, Size128K) {
-  fprintf( s_benchmark_frag_log_file,"%16s", "Size128K");
+  fprintf(s_benchmark_frag_log_file, "%16s", "Size128K");
 
-  while(requested_size < EXT_RAM_SIZE) {
+  while (requested_size < EXT_RAM_SIZE) {
     const uint32_t req_size = 128 * 1024;
 
-    uint32_t offset = emalloc_alloc(&emalloc_ctx,req_size);
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
     CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
 
     if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
@@ -122,17 +124,17 @@ TEST(BenchmarkFragmentation, Size128K) {
     }
 
     requested_size += req_size;
-    remain_size -=  req_size;
+    remain_size -= req_size;
   }
 }
 
 TEST(BenchmarkFragmentation, Size100K) {
-  fprintf( s_benchmark_frag_log_file,"%16s", "Size100K");
+  fprintf(s_benchmark_frag_log_file, "%16s", "Size100K");
 
-  while(requested_size < EXT_RAM_SIZE) {
+  while (requested_size < EXT_RAM_SIZE) {
     const uint32_t req_size = 100 * 1024;
 
-    uint32_t offset = emalloc_alloc(&emalloc_ctx,req_size);
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
     CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
 
     if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
@@ -140,17 +142,17 @@ TEST(BenchmarkFragmentation, Size100K) {
     }
 
     requested_size += req_size;
-    remain_size -=  req_size;
+    remain_size -= req_size;
   }
 }
 
 TEST(BenchmarkFragmentation, Size1234) {
-  fprintf( s_benchmark_frag_log_file,"%16s", "Size1234");
+  fprintf(s_benchmark_frag_log_file, "%16s", "Size1234");
 
-  while(requested_size < EXT_RAM_SIZE) {
+  while (requested_size < EXT_RAM_SIZE) {
     const uint32_t req_size = 1234;
 
-    uint32_t offset = emalloc_alloc(&emalloc_ctx,req_size);
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
     CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
 
     if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
@@ -158,6 +160,45 @@ TEST(BenchmarkFragmentation, Size1234) {
     }
 
     requested_size += req_size;
-    remain_size -=  req_size;
+    remain_size -= req_size;
+  }
+}
+
+TEST(BenchmarkFragmentation, RandomAllocFree2K) {
+  static constexpr uint32_t max_random_allocation_size = 2048;
+  fprintf(s_benchmark_frag_log_file, "%16s", "RandomAllocFree2K");
+
+  std::vector<std::pair<uint32_t, uint32_t>> allocation_table;
+  allocation_table.reserve(EXT_RAM_SIZE / max_random_allocation_size);
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        16, static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    uint32_t free_size = 0;
+
+    std::uniform_int_distribution<> alloc_dist(
+        0, static_cast<int32_t>(allocation_table.size() - 1));
+    const uint32_t free_idx = alloc_dist(*random_generator);
+
+    if (allocation_table[free_idx].first != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      CHECK_EQUAL(EMALLOC_OK,
+                  emalloc_free(&emalloc_ctx, allocation_table[free_idx].first));
+      allocation_table[free_idx].first = EMALLOC_ERR_NO_EXTERNAL_MEMORY;
+      free_size = allocation_table[free_idx].second;
+    }
+
+    requested_size += req_size - free_size;
+    remain_size -= req_size - free_size;
   }
 }
