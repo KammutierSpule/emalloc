@@ -1,0 +1,25 @@
+{
+  "recommendations": [
+    "kevinkyang.auto-comment-blocks",
+    "ms-vscode.cmake-tools",
+    "jeff-hykin.better-cpp-syntax",
+    "ms-vscode.cpptools",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "vadimcn.vscode-lldb",
+    "cheshirekow.cmake-format",
+    "editorconfig.editorconfig",
+    "bneumann.cpputest-test-adapter",
+    "soulcode.vscode-unwanted-extensions",
+    "QiuMingGe.cpp-check-lint"
+  ],
+  "unwantedRecommendations": [
+    "nordic-semiconductor.nrf-kconfig",
+    "nordic-semiconductor.nrf-terminal",
+    "nordic-semiconductor.nrf-devicetree",
+    "nordic-semiconductor.nrf-connect",
+    "nordic-semiconductor.nrf-connect-extension-pack",
+    "ms-vscode.makefile-tools",
+    "espressif.esp-idf-extension",
+    "microchip.runcmake"
+  ]
+}

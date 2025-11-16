@@ -1,0 +1,216 @@
+// /////////////////////////////////////////////////////////////////////////////
+/// @file emalloc.c
+///
+/// @par  Plataform Target: Any
+///
+/// @copyright (C) 2025 Mario Luzeiro All rights reserved.
+/// @author Mario Luzeiro <mluzeiro@ua.pt>
+///
+/// @par  License: Distributed under the 3-Clause BSD License. See accompanying
+/// file LICENSE or a copy at https://opensource.org/licenses/BSD-3-Clause
+/// SPDX-License-Identifier: BSD-3-Clause
+///
+// /////////////////////////////////////////////////////////////////////////////
+
+// Includes
+// /////////////////////////////////////////////////////////////////////////////
+#include "../include/emalloc/emalloc.h"
+#include <stdbool.h>
+
+// Definitions
+// /////////////////////////////////////////////////////////////////////////////
+
+#define EMALLOC_MIN_ALLOC_SHIFTS (4)
+#define EMALLOC_MIN_ALLOC_SIZE (1 << (EMALLOC_MIN_ALLOC_SHIFTS))  // 16 bytes
+#define EMALLOC_ALLOC_INFO_MASK (0x0000000F)
+
+typedef enum e_emalloc_alloc_info {
+  /// Node is free, alloc_info has size info
+  EMALLOC_NODE_FREE = 0x00,
+
+  /// Node is allocated, alloc_info has size info
+  EMALLOC_NODE_VARIABLE_SIZE = 0x0F,
+} eEMALLOC_alloc_info;
+
+typedef struct s_emalloc_node {
+  /// offset address on the external memory.
+  /// Offset will be aligned based on EMALLOC_MIN_ALLOC_SIZE (16 bytes),
+  /// so it gives is 4 bits for allocation info meaning.
+  uint32_t offset;
+
+  /// size or bitmask
+  uint32_t alloc_info;
+} sEMALLOC_node;
+
+uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
+                      const sEMALLOC_cfg* a_emalloc_configuration) {
+  // Parameter validation
+  if ((!a_emalloc_ctx) || (!a_emalloc_configuration)) {
+    return EMALLOC_ERR_INVALID_PARAMETER;
+  }
+
+  // Configuration validation
+  if ((!a_emalloc_configuration->nodes_poll) ||
+      (a_emalloc_configuration->nodes_poll_length == 0) ||
+      (a_emalloc_configuration->external_memory_size_bytes <
+       EMALLOC_MIN_ALLOC_SIZE)) {
+    return EMALLOC_ERR_INVALID_PARAMETER;
+  }
+
+  // Save config
+  a_emalloc_ctx->nodes_poll = a_emalloc_configuration->nodes_poll;
+  a_emalloc_ctx->nodes_poll_length = a_emalloc_configuration->nodes_poll_length;
+  a_emalloc_ctx->external_memory_size_bytes =
+      a_emalloc_configuration->external_memory_size_bytes;
+  a_emalloc_ctx->external_allocated_bytes = 0;
+  a_emalloc_ctx->node_count = 1;
+
+  // Initialize first node, covering entire external memory
+  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_configuration->nodes_poll;
+
+  nodes[0].offset = EMALLOC_NODE_FREE;
+  nodes[0].alloc_info = a_emalloc_configuration->external_memory_size_bytes;
+
+  return EMALLOC_OK;
+}
+
+static bool is_node_free(const sEMALLOC_node* a_node) {
+  return (a_node->offset & EMALLOC_ALLOC_INFO_MASK) == EMALLOC_NODE_FREE;
+}
+
+static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
+  sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+
+  uint32_t i = 0;
+
+  for (; i < a_emalloc_ctx->node_count; ++i) {
+    const bool isNodeFree = is_node_free(node);
+    if (isNodeFree) {
+      if (node->alloc_info >= a_size) {
+        return (int32_t)i;
+      }
+    }
+    node++;
+  }
+
+  if (i == a_emalloc_ctx->nodes_poll_length) {
+    return -2;
+  }
+
+  return -1;
+}
+
+// Sort nodes by offset (simple bubble sort for clarity)
+static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
+  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+
+  for (uint32_t i = 0; i < (a_emalloc_ctx->node_count - 1); ++i) {
+    for (uint32_t j = 0; j < (a_emalloc_ctx->node_count - i - 1); ++j) {
+      if (nodes[j].offset > nodes[j + 1].offset) {
+        sEMALLOC_node temp = nodes[j];
+        nodes[j] = nodes[j + 1];
+        nodes[j + 1] = temp;
+      }
+    }
+  }
+}
+
+// Coalesce adjacent free nodes
+static void coalesce(sEMALLOC_ctx* a_emalloc_ctx) {
+  sort_nodes(a_emalloc_ctx);
+
+  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+
+  for (uint32_t i = 0; i < a_emalloc_ctx->node_count - 1; i++) {
+    if (is_node_free(&nodes[i]) && is_node_free(&nodes[i + 1])) {
+      if (nodes[i].offset + nodes[i].alloc_info == nodes[i + 1].offset) {
+        // Merge nodes
+        nodes[i].alloc_info += nodes[i + 1].alloc_info;
+
+        // Shift remaining nodes
+        for (uint32_t j = i + 1; j < (a_emalloc_ctx->node_count - 1); ++j) {
+          nodes[j] = nodes[j + 1];
+        }
+        a_emalloc_ctx->node_count--;
+
+        i--;  // Check again in case of multiple adjacent free nodes
+      }
+    }
+  }
+}
+
+uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
+  if (a_alloc_size == 0) {
+    return EMALLOC_ERR_ZERO_REQUESTED;
+  }
+
+  if (a_alloc_size > a_emalloc_ctx->external_memory_size_bytes) {
+    return EMALLOC_ERR_INVALID_PARAMETER;  // Error value
+  }
+
+  if ((a_alloc_size & ((1 << EMALLOC_MIN_ALLOC_SHIFTS) - 1)) != 0) {
+    a_alloc_size = ((a_alloc_size >> EMALLOC_MIN_ALLOC_SHIFTS) + 1)
+                   << EMALLOC_MIN_ALLOC_SHIFTS;
+  }
+
+  const int32_t idx = find_free_node(a_emalloc_ctx, a_alloc_size);
+
+  if (idx == -1) {
+    return EMALLOC_ERR_NO_EXTERNAL_MEMORY;
+  }
+
+  if (idx == -2) {
+    return EMALLOC_ERR_NO_MORE_FREE_NODES;
+  }
+
+  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+
+  const uint32_t offset = nodes[idx].offset & ~EMALLOC_ALLOC_INFO_MASK;
+
+  // Split node if there's leftover space
+  const uint32_t node_count = a_emalloc_ctx->node_count;
+  if ((node_count < a_emalloc_ctx->nodes_poll_length) &&
+      (nodes[idx].alloc_info > a_alloc_size)) {
+    // Create new node for remainder
+    nodes[node_count].offset = (offset + a_alloc_size) | EMALLOC_NODE_FREE;
+    nodes[node_count].alloc_info = nodes[idx].alloc_info - a_alloc_size;
+
+    a_emalloc_ctx->node_count++;
+
+    nodes[idx].alloc_info = a_alloc_size;
+  }
+
+  nodes[idx].offset |= EMALLOC_NODE_VARIABLE_SIZE;
+
+  a_emalloc_ctx->external_allocated_bytes += a_alloc_size;
+
+  return offset;
+}
+
+uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
+                      uint32_t a_allocated_offset) {
+  sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+
+  for (uint32_t i = 0; i < a_emalloc_ctx->node_count; ++i) {
+    const uint32_t nodeOffset = node->offset & ~EMALLOC_ALLOC_INFO_MASK;
+
+    if ((nodeOffset == a_allocated_offset) && !is_node_free(node)) {
+      // Free node
+      node->offset = nodeOffset;
+      node->offset |= EMALLOC_NODE_FREE;
+
+      a_emalloc_ctx->external_allocated_bytes -= node->alloc_info;
+
+      coalesce(a_emalloc_ctx);
+
+      return EMALLOC_OK;
+    }
+
+    node++;
+  }
+
+  return EMALLOC_ERR_OFFSET_NOT_FOUND;
+}
+
+// EOF
+// /////////////////////////////////////////////////////////////////////////////
