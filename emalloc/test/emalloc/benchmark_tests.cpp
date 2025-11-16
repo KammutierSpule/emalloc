@@ -91,8 +91,8 @@ TEST_GROUP(BenchmarkTests){
 // All the memory except the last 32 bytes are allocated in blocks of minimum
 // size (16 bytes), then odd blocks are released. After this startup,
 // the worstcase occurs when a block of 32 bytes is requested."
-TEST(BenchmarkTests, Test1A) {
-  fprintf(s_benchmark_tests_log_file, "Test1A");
+TEST(BenchmarkTests, TLSF_Test1A) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test1A");
 
   static constexpr uint32_t kBlockSize_bytes = 16;
   static constexpr uint32_t kNAllocationsNeed =
@@ -106,8 +106,8 @@ TEST(BenchmarkTests, Test1A) {
   }
 }
 
-TEST(BenchmarkTests, Test1B) {
-  fprintf(s_benchmark_tests_log_file, "Test1B");
+TEST(BenchmarkTests, TLSF_Test1B) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test1B");
 
   static constexpr uint32_t kBlockSize_bytes = 16;
   static constexpr uint32_t kNAllocationsNeed =
@@ -130,8 +130,8 @@ TEST(BenchmarkTests, Test1B) {
 // malloc. The memory pool is 256 KB and the same request
 // sequence that in Test-1, but requesting blocks of 512 bytes.
 // And the last block has a size of 530 bytes."
-TEST(BenchmarkTests, Test2A) {
-  fprintf(s_benchmark_tests_log_file, "Test2A");
+TEST(BenchmarkTests, TLSF_Test2A) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test2A");
 
   static constexpr uint32_t kBlockSize_bytes = 512;
   static constexpr uint32_t kNAllocationsNeed =
@@ -145,8 +145,8 @@ TEST(BenchmarkTests, Test2A) {
   }
 }
 
-TEST(BenchmarkTests, Test2B) {
-  fprintf(s_benchmark_tests_log_file, "Test2B");
+TEST(BenchmarkTests, TLSF_Test2B) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test2B");
 
   static constexpr uint32_t kBlockSize_bytes = 512;
   static constexpr uint32_t kNAllocationsNeed =
@@ -163,4 +163,103 @@ TEST(BenchmarkTests, Test2B) {
 
   uint32_t last_offset = emalloc_alloc(&emalloc_ctx, 530);
   CHECK_EQUAL(0, last_offset & EMALLOC_ERR_MASK);
+}
+
+// "Test-3 malloc/free worst case for Binary Buddy.
+// The memory pool is 2 MB. No blocks were allocated initially.
+// The worst case occurs when a 16 bytes block is requested.""
+TEST(BenchmarkTests, TLSF_Test3) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test3");
+
+  uint32_t last_offset = emalloc_alloc(&emalloc_ctx, 16);
+  CHECK_EQUAL(0, last_offset & EMALLOC_ERR_MASK);
+}
+
+// "Test-4 malloc worst case for TLSF. The memory pool is 2 MB.
+// No blocks are allocated initially. Then a 40-byte block is requested.""
+TEST(BenchmarkTests, TLSF_Test4) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test4");
+
+  uint32_t last_offset = emalloc_alloc(&emalloc_ctx, 40);
+  CHECK_EQUAL(0, last_offset & EMALLOC_ERR_MASK);
+}
+
+// "Test-5 free worst case for TLSF. The memory pool is 1 MB.
+// Three 512-byte blocks are allocated,
+// then the first and third blocks are released. The time to release the second
+// block is the worst-case scenario."
+TEST(BenchmarkTests, TLSF_Test5A) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test5A");
+
+  uint32_t block1 = emalloc_alloc(&emalloc_ctx, 512);
+  CHECK_EQUAL(0, block1 & EMALLOC_ERR_MASK);
+
+  uint32_t block2 = emalloc_alloc(&emalloc_ctx, 512);
+  CHECK_EQUAL(0, block2 & EMALLOC_ERR_MASK);
+
+  uint32_t block3 = emalloc_alloc(&emalloc_ctx, 512);
+  CHECK_EQUAL(0, block3 & EMALLOC_ERR_MASK);
+
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, block1));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, block3));
+}
+
+TEST(BenchmarkTests, TLSF_Test5B) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test5B");
+
+  uint32_t block1 = emalloc_alloc(&emalloc_ctx, 512);
+  CHECK_EQUAL(0, block1 & EMALLOC_ERR_MASK);
+
+  uint32_t block2 = emalloc_alloc(&emalloc_ctx, 512);
+  CHECK_EQUAL(0, block2 & EMALLOC_ERR_MASK);
+
+  uint32_t block3 = emalloc_alloc(&emalloc_ctx, 512);
+  CHECK_EQUAL(0, block3 & EMALLOC_ERR_MASK);
+
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, block1));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, block3));
+
+  emalloc_reset_statistics();
+
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, block2));
+}
+
+TEST(BenchmarkTests, TLSF_Test5C) {
+  fprintf(s_benchmark_tests_log_file, "TLSF_Test5C");
+
+  static constexpr uint32_t kBlockSize_bytes = 512;
+  static constexpr uint32_t kNAllocationsNeed =
+      ((EXT_RAM_SIZE / kBlockSize_bytes) / 2) - 1;
+
+  // Alloc first block group
+  uint32_t first_block[kNAllocationsNeed];
+  for (uint32_t i = 0; i < kNAllocationsNeed; i++) {
+    first_block[i] = emalloc_alloc(&emalloc_ctx, kBlockSize_bytes);
+    CHECK_EQUAL(0, first_block[i] & EMALLOC_ERR_MASK);
+  }
+
+  // Alloc middle
+  uint32_t middle = emalloc_alloc(&emalloc_ctx, kBlockSize_bytes);
+  CHECK_EQUAL(0, middle & EMALLOC_ERR_MASK);
+
+  // Alloc second block group
+  uint32_t second_block[kNAllocationsNeed];
+  for (uint32_t i = 0; i < kNAllocationsNeed; i++) {
+    second_block[i] = emalloc_alloc(&emalloc_ctx, kBlockSize_bytes);
+    CHECK_EQUAL(0, second_block[i] & EMALLOC_ERR_MASK);
+  }
+
+  // Free first block group
+  for (uint32_t i = 0; i < kNAllocationsNeed; i++) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, first_block[i]));
+  }
+
+  // Free second block group
+  for (uint32_t i = 0; i < kNAllocationsNeed; i++) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, second_block[i]));
+  }
+
+  emalloc_reset_statistics();
+
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, middle));
 }
