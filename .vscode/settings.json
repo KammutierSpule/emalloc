@@ -326,7 +326,8 @@
   "cpp-check-lint.cpplint.--enable": true,
   "cpp-check-lint.cpplint.--onsave": true,
   "cpp-check-lint.cpplint.--exclude=": [
-    "emalloc",
+    "emalloc/include",
+    "emalloc/src"
   ],
   // Remove conflict with clang extension
   "C_Cpp.intelliSenseEngine": "disabled",

@@ -21,7 +21,7 @@
 #include <cstdio>
 #include <random>
 
-static bool s_show_header = true;
+extern FILE* s_benchmark_frag_log_file;
 
 // clang-format off
 // NOLINTBEGIN
@@ -41,11 +41,13 @@ TEST_GROUP( BenchmarkFragmentation ){
   uint32_t remain_size = EXT_RAM_SIZE;
 
   void setup() {
-    if (s_show_header) {
-      s_show_header = false;
-      fprintf( stdout,"%16s%16s%8s%16s%8s%16s%8s%8s\n",
+    if (!s_benchmark_frag_log_file) {
+      s_benchmark_frag_log_file = fopen("BenchmarkFragmentation.log", "w");
+
+      fprintf( s_benchmark_frag_log_file,
+        "%16s%10s%8s%12s%8s%11s%8s%8s\n",
         "TestName",
-        "requested_size",
+        "req_size",
         "%",
         "remain_size",
         "%",
@@ -75,7 +77,8 @@ TEST_GROUP( BenchmarkFragmentation ){
   void teardown() {
     delete random_generator;
 
-    fprintf( stdout,"%16u%8.3f%16u%8.3f%16u%8u%8u\n",
+    fprintf( s_benchmark_frag_log_file,
+      "%10u%8.3f%12u%8.3f%11u%8u%8u\n",
       requested_size,
       (requested_size * 100.0f) / static_cast<float>(EXT_RAM_SIZE),
       remain_size,
@@ -87,7 +90,7 @@ TEST_GROUP( BenchmarkFragmentation ){
 };
 
 TEST(BenchmarkFragmentation, RandomFullRemainRange) {
-  fprintf( stdout,"%16s", "RandomFullRange");
+  fprintf( s_benchmark_frag_log_file,"%16s", "RandomFullRange");
 
   while(requested_size < EXT_RAM_SIZE) {
     std::uniform_int_distribution<> dist(0, static_cast<uint32_t>(remain_size));
@@ -106,7 +109,7 @@ TEST(BenchmarkFragmentation, RandomFullRemainRange) {
 }
 
 TEST(BenchmarkFragmentation, Size128K) {
-  fprintf( stdout,"%16s", "Size128K");
+  fprintf( s_benchmark_frag_log_file,"%16s", "Size128K");
 
   while(requested_size < EXT_RAM_SIZE) {
     const uint32_t req_size = 128 * 1024;
@@ -124,7 +127,7 @@ TEST(BenchmarkFragmentation, Size128K) {
 }
 
 TEST(BenchmarkFragmentation, Size100K) {
-  fprintf( stdout,"%16s", "Size100K");
+  fprintf( s_benchmark_frag_log_file,"%16s", "Size100K");
 
   while(requested_size < EXT_RAM_SIZE) {
     const uint32_t req_size = 100 * 1024;
@@ -142,7 +145,7 @@ TEST(BenchmarkFragmentation, Size100K) {
 }
 
 TEST(BenchmarkFragmentation, Size1234) {
-  fprintf( stdout,"%16s", "Size1234");
+  fprintf( s_benchmark_frag_log_file,"%16s", "Size1234");
 
   while(requested_size < EXT_RAM_SIZE) {
     const uint32_t req_size = 1234;

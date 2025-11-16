@@ -14,12 +14,21 @@
 // /////////////////////////////////////////////////////////////////////////////
 
 #include <CppUTest/CommandLineTestRunner.h>
+#include <cstdio>
 #include <cstdlib>
 #include <ctime>
 
+FILE* s_benchmark_frag_log_file = nullptr;
+
 int main(int argc, char** argv) {
   srand(time(nullptr));
-  return RUN_ALL_TESTS(argc, argv);
+  int ret = RUN_ALL_TESTS(argc, argv);
+
+  if (s_benchmark_frag_log_file != nullptr) {
+    fclose(s_benchmark_frag_log_file);
+  }
+
+  return ret;
 }
 
 // EOF
