@@ -1,2 +1,0 @@
-        TestName  req_size       % remain_size       %   ExtAlloc  Wasted   Nodes
-RandomAllocFree2K    995626  94.950       52950   5.050    1003184    7558    1253
