@@ -25,6 +25,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_init.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_fragmentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_alloc_free.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_overlap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/benchmark_fragmentation.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/benchmark_tests.cpp)
 
