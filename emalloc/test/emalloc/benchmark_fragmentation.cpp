@@ -23,12 +23,13 @@
 #include <vector>
 
 extern FILE* s_benchmark_frag_log_file;
+#define EMALLOC_MIN_MEMORY_SIZE (16)
 
 // clang-format off
 // NOLINTBEGIN
 TEST_GROUP( BenchmarkFragmentation ){
-  static const uint32_t EXT_RAM_SIZE = 1*1024*1024;
-  static const uint32_t MAX_NODES = EXT_RAM_SIZE / 16;
+  static const uint32_t EXT_RAM_SIZE = 2*1024*1024;
+  static const uint32_t MAX_NODES = EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE;
 
   uint64_t nodes_poll[MAX_NODES];
   uint8_t external_ram[EXT_RAM_SIZE];
@@ -44,6 +45,9 @@ TEST_GROUP( BenchmarkFragmentation ){
   void setup() {
     if (!s_benchmark_frag_log_file) {
       s_benchmark_frag_log_file = fopen("BenchmarkFragmentation.log", "w");
+
+      fprintf( s_benchmark_frag_log_file, "EXT_RAM_SIZE:%u, MAX_NODES:%u\n",
+        EXT_RAM_SIZE, MAX_NODES);
 
       fprintf( s_benchmark_frag_log_file,
         "%16s%10s%8s%12s%8s%11s%8s%8s\n",
@@ -164,16 +168,18 @@ TEST(BenchmarkFragmentation, Size1234) {
   }
 }
 
-TEST(BenchmarkFragmentation, RandomAllocFree2K) {
+// 1. Fill all memory with random requests.
+TEST(BenchmarkFragmentation, AllocRnd2KNoFree) {
   static constexpr uint32_t max_random_allocation_size = 2048;
-  fprintf(s_benchmark_frag_log_file, "%16s", "RandomAllocFree2K");
+  fprintf(s_benchmark_frag_log_file, "%16s", "AllocRnd2KNoFree");
 
   std::vector<std::pair<uint32_t, uint32_t>> allocation_table;
-  allocation_table.reserve(EXT_RAM_SIZE / max_random_allocation_size);
+  allocation_table.reserve(EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE);
 
   while (true) {
     std::uniform_int_distribution<> dist(
-        16, static_cast<uint32_t>(max_random_allocation_size));
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
     const uint32_t req_size = dist(*random_generator);
 
     uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
@@ -185,20 +191,323 @@ TEST(BenchmarkFragmentation, RandomAllocFree2K) {
 
     allocation_table.emplace_back(offset, req_size);
 
-    uint32_t free_size = 0;
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+}
 
-    std::uniform_int_distribution<> alloc_dist(
-        0, static_cast<int32_t>(allocation_table.size() - 1));
-    const uint32_t free_idx = alloc_dist(*random_generator);
+// 1. Fill all memory with random requests.
+// 2. Free every 2nd
+// 3. Fill all memory with random requests.
+TEST(BenchmarkFragmentation, AllocRnd2KFree2nd) {
+  static constexpr uint32_t max_random_allocation_size = 2048;
+  fprintf(s_benchmark_frag_log_file, "%16s", "AllocRnd2KFree2nd");
 
-    if (allocation_table[free_idx].first != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
-      CHECK_EQUAL(EMALLOC_OK,
-                  emalloc_free(&emalloc_ctx, allocation_table[free_idx].first));
-      allocation_table[free_idx].first = EMALLOC_ERR_NO_EXTERNAL_MEMORY;
-      free_size = allocation_table[free_idx].second;
+  std::vector<std::pair<uint32_t, uint32_t>> allocation_table;
+  allocation_table.reserve(EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE);
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
     }
 
-    requested_size += req_size - free_size;
-    remain_size -= req_size - free_size;
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+
+  for (uint32_t i = 0; i < allocation_table.size(); i += 2) {
+    CHECK_EQUAL(EMALLOC_OK,
+                emalloc_free(&emalloc_ctx, allocation_table[i].first));
+
+    const uint32_t free_size = allocation_table[i].second;
+    requested_size -= free_size;
+    remain_size += free_size;
+  }
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+}
+
+// 1. Fill all memory with random requests.
+// 2. Free every 3nd
+// 3. Fill all memory with random requests.
+TEST(BenchmarkFragmentation, AllocRnd2KFree3nd) {
+  static constexpr uint32_t max_random_allocation_size = 2048;
+  fprintf(s_benchmark_frag_log_file, "%16s", "AllocRnd2KFree3nd");
+
+  std::vector<std::pair<uint32_t, uint32_t>> allocation_table;
+  allocation_table.reserve(EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE);
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+
+  for (uint32_t i = 0; i < allocation_table.size(); i += 3) {
+    CHECK_EQUAL(EMALLOC_OK,
+                emalloc_free(&emalloc_ctx, allocation_table[i].first));
+
+    const uint32_t free_size = allocation_table[i].second;
+    requested_size -= free_size;
+    remain_size += free_size;
+  }
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+}
+
+// 1. Fill all memory with random requests.
+// 2. Free every 4nd
+// 3. Fill all memory with random requests.
+TEST(BenchmarkFragmentation, AllocRnd2KFree4nd) {
+  static constexpr uint32_t max_random_allocation_size = 2048;
+  fprintf(s_benchmark_frag_log_file, "%16s", "AllocRnd2KFree4nd");
+
+  std::vector<std::pair<uint32_t, uint32_t>> allocation_table;
+  allocation_table.reserve(EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE);
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+
+  for (uint32_t i = 0; i < allocation_table.size(); i += 4) {
+    CHECK_EQUAL(EMALLOC_OK,
+                emalloc_free(&emalloc_ctx, allocation_table[i].first));
+
+    const uint32_t free_size = allocation_table[i].second;
+    requested_size -= free_size;
+    remain_size += free_size;
+  }
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+}
+
+// 1. Fill all memory with random requests.
+// 2. Free half of number of allocations, randomly
+// 3. Fill all memory with random requests.
+TEST(BenchmarkFragmentation, AllocRnd2KFreeHlfRnd) {
+  static constexpr uint32_t max_random_allocation_size = 2048;
+  fprintf(s_benchmark_frag_log_file, "%16s", "AllocRnd2KFreeHlfRnd");
+
+  std::vector<std::pair<uint32_t, uint32_t>> allocation_table;
+  allocation_table.reserve(EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE);
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+
+  // Free half of allocations, randomly
+  uint32_t n_free = 0;
+  while (n_free < (allocation_table.size() / 2)) {
+    std::uniform_int_distribution<> dist(
+        0, static_cast<uint32_t>(allocation_table.size() - 1));
+    const uint32_t idx_to_free = dist(*random_generator);
+
+    if (allocation_table[idx_to_free].first != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      CHECK_EQUAL(
+          EMALLOC_OK,
+          emalloc_free(&emalloc_ctx, allocation_table[idx_to_free].first));
+
+      allocation_table[idx_to_free].first = EMALLOC_ERR_NO_EXTERNAL_MEMORY;
+
+      const uint32_t free_size = allocation_table[idx_to_free].second;
+      requested_size -= free_size;
+      remain_size += free_size;
+      n_free++;
+    }
+  }
+
+  // Try to alloc the maximum of random requests
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+}
+
+// 1. Fill all memory with random requests.
+// 2. Free half of number of allocations, randomly
+// 3. Fill all memory with random requests.
+TEST(BenchmarkFragmentation, AllocRnd1KFreeHlfRnd) {
+  static constexpr uint32_t max_random_allocation_size = 1024;
+  fprintf(s_benchmark_frag_log_file, "%16s", "AllocRnd1KFreeHlfRnd");
+
+  std::vector<std::pair<uint32_t, uint32_t>> allocation_table;
+  allocation_table.reserve(EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE);
+
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
+  }
+
+  // Free half of allocations, randomly
+  uint32_t n_free = 0;
+  while (n_free < (allocation_table.size() / 2)) {
+    std::uniform_int_distribution<> dist(
+        0, static_cast<uint32_t>(allocation_table.size() - 1));
+    const uint32_t idx_to_free = dist(*random_generator);
+
+    if (allocation_table[idx_to_free].first != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      CHECK_EQUAL(
+          EMALLOC_OK,
+          emalloc_free(&emalloc_ctx, allocation_table[idx_to_free].first));
+
+      allocation_table[idx_to_free].first = EMALLOC_ERR_NO_EXTERNAL_MEMORY;
+
+      const uint32_t free_size = allocation_table[idx_to_free].second;
+      requested_size -= free_size;
+      remain_size += free_size;
+      n_free++;
+    }
+  }
+
+  // Try to alloc the maximum of random requests
+  while (true) {
+    std::uniform_int_distribution<> dist(
+        EMALLOC_MIN_MEMORY_SIZE,
+        static_cast<uint32_t>(max_random_allocation_size));
+    const uint32_t req_size = dist(*random_generator);
+
+    uint32_t offset = emalloc_alloc(&emalloc_ctx, req_size);
+    CHECK_FALSE(offset == EMALLOC_ERR_NO_MORE_FREE_NODES);
+
+    if (offset == EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+      break;
+    }
+
+    allocation_table.emplace_back(offset, req_size);
+
+    requested_size += req_size;
+    remain_size -= req_size;
   }
 }

@@ -415,3 +415,48 @@ TEST(BenchmarkTests, AllFreeMiddle1025) {
   uint32_t middle = emalloc_alloc(&emalloc_ctx, kBlockSize_bytes);
   CHECK_EQUAL(0, middle & EMALLOC_ERR_MASK);
 }
+
+// Alloc and free all, stats from free starting on last
+TEST(BenchmarkTests, FreeFromLast128) {
+  fprintf(s_benchmark_tests_log_file, "FreeFromLast128");
+
+  static constexpr uint32_t kBlockSize_bytes = 128;
+  static constexpr uint32_t kNAllocationsNeed =
+      (EXT_RAM_SIZE / kBlockSize_bytes);
+
+  // Alloc first block group
+  uint32_t offsets[kNAllocationsNeed];
+  for (uint32_t i = 0; i < kNAllocationsNeed; i++) {
+    offsets[i] = emalloc_alloc(&emalloc_ctx, kBlockSize_bytes);
+    CHECK_EQUAL(0, offsets[i] & EMALLOC_ERR_MASK);
+  }
+
+  emalloc_reset_statistics();
+
+  for (int32_t i = (kNAllocationsNeed - 1); i >= 0; i--) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
+  }
+}
+
+// Alloc and free all, stats from free starting on last
+TEST(BenchmarkTests, FreeFromLast1025) {
+  fprintf(s_benchmark_tests_log_file, "FreeFromLast1025");
+
+  static constexpr uint32_t kBlockSize_bytes = 1025;
+  static constexpr uint32_t kNAllocationsNeed =
+      (EXT_RAM_SIZE / (((kBlockSize_bytes / EMALLOC_MIN_MEMORY_SIZE) + 1) *
+                       EMALLOC_MIN_MEMORY_SIZE));
+
+  // Alloc first block group
+  uint32_t offsets[kNAllocationsNeed];
+  for (int32_t i = 0; i < kNAllocationsNeed; i++) {
+    offsets[i] = emalloc_alloc(&emalloc_ctx, kBlockSize_bytes);
+    CHECK_EQUAL(0, offsets[i] & EMALLOC_ERR_MASK);
+  }
+
+  emalloc_reset_statistics();
+
+  for (int32_t i = (kNAllocationsNeed - 1); i >= 0; i--) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
+  }
+}
