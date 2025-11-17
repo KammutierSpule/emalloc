@@ -27,6 +27,13 @@ extern "C" {
 
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
+
+// Choose one sort algo
+#define EMALLOC_USE_BUBBLE_SORT 0
+#define EMALLOC_USE_SHELL_SORT 1
+
+#define EMALLOC_USE_SEARCH_INTERPOLATION 1
+
 #ifndef EMALLOC_STATISTICS
 #define EMALLOC_STATISTICS 0
 #endif
@@ -43,6 +50,8 @@ typedef struct s_emalloc_state {
   uint32_t external_memory_size_bytes;  ///< external storage size to manage
   uint32_t external_allocated_bytes;    ///< current external memory allocated
   uint32_t node_count;                  ///< current node counter
+  uint32_t low_node_offset;
+  uint32_t hi_node_offset;
 } sEMALLOC_ctx;
 
 // Return errors

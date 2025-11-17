@@ -142,7 +142,7 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
 
   return -1;
 }
-
+#if (EMALLOC_USE_BUBBLE_SORT == 1)
 // Sort nodes by offset (simple bubble sort for clarity)
 static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
@@ -164,16 +164,112 @@ static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
     }
   }
 }
+#endif
+
+#if (EMALLOC_USE_SHELL_SORT == 1)
+// Shell sort
+static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
+  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+  const uint32_t n = a_emalloc_ctx->node_count;
+
+  // Rearrange elements at each n/2, n/4, n/8, ... intervals
+  for (uint32_t interval = n / 2; interval > 0; interval /= 2) {
+    EMALLOC_STATS_INC_LOOPS(1);
+
+    for (uint32_t i = interval; i < n; i += 1) {
+      EMALLOC_STATS_INC_LOOPS(1);
+      EMALLOC_STATS_INC_RDWR(2);
+      const sEMALLOC_node temp = nodes[i];
+      uint32_t j = i;
+      for (; (j >= interval); j -= interval) {
+        EMALLOC_STATS_INC_LOOPS(1);
+
+        EMALLOC_STATS_INC_RDWR(2);
+        const sEMALLOC_node temp_j = nodes[j - interval];
+
+        EMALLOC_STATS_INC_IF(1);
+        if (temp_j.offset <= temp.offset) {
+          break;
+        }
+
+        nodes[j] = temp_j;
+        EMALLOC_STATS_INC_RDWR(2 * 2);
+      }
+
+      nodes[j] = temp;
+      EMALLOC_STATS_INC_RDWR(2);
+    }
+  }
+}
+#endif
+
+#if (EMALLOC_USE_SEARCH_INTERPOLATION == 1)
+static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
+                                    uint32_t a_offset_to_search,
+                                    uint32_t a_mask) {
+  uint32_t lowIdx = 0;
+  uint32_t highIdx = a_emalloc_ctx->node_count - 1;
+
+  const sEMALLOC_node* nodes = (const sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+
+  // Assume values inside range only,
+  // they will return EMALLOC_ERR_OFFSET_NOT_FOUND anyway, but will take longer.
+
+  EMALLOC_STATS_INC_IF(1);
+  while (lowIdx <= highIdx) {
+    EMALLOC_STATS_INC_LOOPS(1);
+
+    EMALLOC_STATS_INC_RDWR(1);
+    const uint32_t lowOffset = nodes[lowIdx].offset & a_mask;
+
+    // If array has only one (or is the last search) element
+    EMALLOC_STATS_INC_IF(1);
+    if (lowIdx == highIdx) {
+      EMALLOC_STATS_INC_IF(1);
+      if (lowOffset == a_offset_to_search) {
+        return lowIdx;
+      }
+
+      return EMALLOC_ERR_OFFSET_NOT_FOUND;
+    }
+
+    EMALLOC_STATS_INC_RDWR(1);
+    const uint32_t highOffset = nodes[highIdx].offset & a_mask;
+
+    // Estimate position using interpolation formula
+    const uint32_t estimatedIdx =
+        lowIdx + (((highIdx - lowIdx) * (a_offset_to_search - lowOffset)) /
+                  (highOffset - lowOffset));
+
+    EMALLOC_STATS_INC_RDWR(1);
+    const uint32_t offsetFromEstimatedIdx = nodes[estimatedIdx].offset & a_mask;
+
+    EMALLOC_STATS_INC_IF(1);
+    if (offsetFromEstimatedIdx == a_offset_to_search) {
+      return estimatedIdx;
+    }
+
+    // Target is in right subarray
+    EMALLOC_STATS_INC_IF(1);
+    if (offsetFromEstimatedIdx < a_offset_to_search) {
+      lowIdx = estimatedIdx + 1;
+    } else {
+      // Target is in left subarray
+      highIdx = estimatedIdx - 1;
+    }
+  }
+
+  return EMALLOC_ERR_OFFSET_NOT_FOUND;
+}
+#endif
 
 // Coalesce adjacent free nodes
 static void coalesce(sEMALLOC_ctx* a_emalloc_ctx) {
-  sort_nodes(a_emalloc_ctx);
-
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   for (uint32_t i = 0; i < a_emalloc_ctx->node_count - 1; i++) {
     EMALLOC_STATS_INC_LOOPS(1);
-    EMALLOC_STATS_INC_IF(1);
+    EMALLOC_STATS_INC_IF(2);
 
     if (is_node_free(&nodes[i]) && is_node_free(&nodes[i + 1])) {
       EMALLOC_STATS_INC_IF(1);
@@ -275,7 +371,38 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
   s_pOpStats = &s_stats.free;
   EMALLOC_STATS_INC_CALLS(1);
 #endif
+#if 1
+  sort_nodes(a_emalloc_ctx);
 
+  const uint32_t idx =
+      interpolationSearch(a_emalloc_ctx, a_allocated_offset, ~EMALLOC_ERR_MASK);
+
+  if (idx == EMALLOC_ERR_OFFSET_NOT_FOUND) {
+    return EMALLOC_ERR_OFFSET_NOT_FOUND;
+  }
+
+  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+  sEMALLOC_node* node = &nodes[idx];
+
+  EMALLOC_STATS_INC_IF(1);
+
+  if (!is_node_free(node)) {
+    // Free node
+    node->offset = a_allocated_offset;
+    node->offset |= EMALLOC_NODE_FREE;
+
+    a_emalloc_ctx->external_allocated_bytes -= node->alloc_info;
+
+    EMALLOC_STATS_INC_RDWR(3);
+
+    coalesce(a_emalloc_ctx);
+
+    return EMALLOC_OK;
+  }
+
+  return EMALLOC_ERR_OFFSET_NOT_FOUND;
+#endif
+#if 0
   sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   for (uint32_t i = 0; i < a_emalloc_ctx->node_count; ++i) {
@@ -294,6 +421,7 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
 
       EMALLOC_STATS_INC_RDWR(3);
 
+      sort_nodes(a_emalloc_ctx);
       coalesce(a_emalloc_ctx);
 
       return EMALLOC_OK;
@@ -303,6 +431,7 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
   }
 
   return EMALLOC_ERR_OFFSET_NOT_FOUND;
+#endif
 }
 
 #if (EMALLOC_STATISTICS == 1)
