@@ -19,8 +19,6 @@
 #include <CppUTest/UtestMacros.h>
 #include <emalloc/emalloc.h>
 #include <cstdio>
-#include <random>
-#include <vector>
 
 extern FILE* s_benchmark_tests_log_file;
 #define EMALLOC_MIN_MEMORY_SIZE (16)
