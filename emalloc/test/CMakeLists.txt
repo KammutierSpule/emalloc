@@ -27,7 +27,8 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_alloc_free.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/test_emalloc_overlap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/benchmark_fragmentation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/benchmark_tests.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/benchmark_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/emalloc/helper_log.cpp)
 
 # Create test executable
 add_executable(RunAllTests ${TEST_SOURCES})

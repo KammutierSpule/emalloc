@@ -17,6 +17,7 @@
 
 // Includes
 // /////////////////////////////////////////////////////////////////////////////
+#include <stdbool.h>
 #include <stdint.h>
 
 // clang-format off
@@ -28,9 +29,11 @@ extern "C" {
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
 
-// Choose one sort algo
+// INSERTION SORT gives the best results on simulations
 #define EMALLOC_USE_BUBBLE_SORT 0
-#define EMALLOC_USE_SHELL_SORT 1
+#define EMALLOC_USE_SHELL_SORT 0
+#define EMALLOC_USE_INSERTION_SORT 1
+#define EMALLOC_USE_HEAP_SORT_MAX 0
 
 #define EMALLOC_USE_SEARCH_INTERPOLATION 1
 
@@ -50,8 +53,10 @@ typedef struct s_emalloc_state {
   uint32_t external_memory_size_bytes;  ///< external storage size to manage
   uint32_t external_allocated_bytes;    ///< current external memory allocated
   uint32_t node_count;                  ///< current node counter
-  uint32_t low_node_offset;
-  uint32_t hi_node_offset;
+  uint32_t node_free_count;             ///< current free node counter
+  uint32_t low_free_node_idx;           ///< lowest index of a free node
+  uint32_t hi_free_node_idx;            ///< highest index of a free node
+  bool is_sorted;
 } sEMALLOC_ctx;
 
 // Return errors
