@@ -56,7 +56,7 @@ typedef struct s_emalloc_state {
   uint32_t node_free_count;             ///< current free node counter
   uint32_t low_free_node_idx;           ///< lowest index of a free node
   uint32_t hi_free_node_idx;            ///< highest index of a free node
-  bool is_sorted;
+  uint32_t start_idx_of_unsorted_node;  ///< 0xFFFFFFFF means it is sorted.
 } sEMALLOC_ctx;
 
 // Return errors

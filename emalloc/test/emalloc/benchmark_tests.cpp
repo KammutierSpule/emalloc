@@ -406,7 +406,7 @@ TEST(BenchmarkTests, AllFreeMiddle1025) {
 
   emalloc_reset_statistics();
 
-  // Free Last
+  // Free Middle
   CHECK_EQUAL(EMALLOC_OK,
               emalloc_free(&emalloc_ctx, offsets[kNAllocationsNeed / 2]));
 

@@ -28,6 +28,7 @@
 #define EMALLOC_MIN_ALLOC_SHIFTS (4)
 #define EMALLOC_MIN_ALLOC_SIZE (1 << (EMALLOC_MIN_ALLOC_SHIFTS))  // 16 bytes
 #define EMALLOC_ALLOC_INFO_MASK (0x0000000F)
+#define EMALLOC_IS_SORTED (0xFFFFFFFF)
 
 typedef enum e_emalloc_alloc_info {
   /// Node is free, alloc_info has size info
@@ -102,7 +103,7 @@ uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
   a_emalloc_ctx->node_free_count = 1;
   a_emalloc_ctx->low_free_node_idx = 0;
   a_emalloc_ctx->hi_free_node_idx = 0;
-  a_emalloc_ctx->is_sorted = true;
+  a_emalloc_ctx->start_idx_of_unsorted_node = EMALLOC_IS_SORTED;
 
   // Initialize first node, covering entire external memory
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_configuration->nodes_poll;
@@ -213,7 +214,8 @@ static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
   const uint32_t n = a_emalloc_ctx->node_count;
 
-  for (uint32_t i = 1; i < n; i++) {
+  for (uint32_t i = (a_emalloc_ctx->start_idx_of_unsorted_node + 1); i < n;
+       i++) {
     EMALLOC_STATS_INC_LOOPS(1);
 
     EMALLOC_STATS_INC_RDWR(2);
@@ -589,7 +591,20 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
     nodes[node_count].alloc_info = node->alloc_info - a_alloc_size;
     node->alloc_info = a_alloc_size;
 
-    a_emalloc_ctx->is_sorted = false;
+    EMALLOC_STATS_INC_IF(1);
+    if ((idx + 1) != node_count) {
+      // It is only unsorted if created node is not adjacent.
+
+      const uint32_t start_idx_of_unsorted_node = idx + 1;
+
+      EMALLOC_STATS_INC_IF(1);
+      if (start_idx_of_unsorted_node <
+          a_emalloc_ctx->start_idx_of_unsorted_node) {
+        a_emalloc_ctx->start_idx_of_unsorted_node = start_idx_of_unsorted_node;
+        EMALLOC_STATS_INC_RDWR(1);
+      }
+    }
+
     a_emalloc_ctx->node_count++;
 
     EMALLOC_STATS_INC_RDWR(6);
@@ -611,14 +626,17 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
   EMALLOC_STATS_INC_CALLS(1);
 #endif
 #if 1
-  if (!a_emalloc_ctx->is_sorted) {
-    a_emalloc_ctx->is_sorted = true;
+  EMALLOC_STATS_INC_IF(1);
+  if (a_emalloc_ctx->start_idx_of_unsorted_node != EMALLOC_IS_SORTED) {
     sort_nodes(a_emalloc_ctx);
+    EMALLOC_STATS_INC_RDWR(1);
+    a_emalloc_ctx->start_idx_of_unsorted_node = EMALLOC_IS_SORTED;
   }
 
   const uint32_t idx =
       interpolationSearch(a_emalloc_ctx, a_allocated_offset, ~EMALLOC_ERR_MASK);
 
+  EMALLOC_STATS_INC_IF(1);
   if (idx == EMALLOC_ERR_OFFSET_NOT_FOUND) {
     return EMALLOC_ERR_OFFSET_NOT_FOUND;
   }
@@ -652,7 +670,6 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
         EMALLOC_STATS_INC_RDWR(1);
       }
 
-      // coalesce(a_emalloc_ctx);
       coalesce(a_emalloc_ctx, idx);
     } else {
       EMALLOC_STATS_INC_RDWR(2);

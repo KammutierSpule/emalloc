@@ -19,6 +19,7 @@
 #include <CppUTest/UtestMacros.h>
 #include <emalloc/emalloc.h>
 #include <vector>
+#include "helper_log.hpp"
 
 // Structure to track active allocations
 struct Allocation {

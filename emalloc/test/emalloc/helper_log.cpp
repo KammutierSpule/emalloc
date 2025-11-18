@@ -38,6 +38,7 @@ void debug_header(const sEMALLOC_ctx* a_ctx) {
   printf("node_free_count:%u\n", a_ctx->node_free_count);
   printf("low_free_node_idx:%u\n", a_ctx->low_free_node_idx);
   printf("hi_free_node_idx:%u\n", a_ctx->hi_free_node_idx);
+  printf("start_idx_of_unsorted_node:%u\n", a_ctx->start_idx_of_unsorted_node);
 }
 
 void debug_all_nodes_poll(const sEMALLOC_ctx* a_ctx) {
