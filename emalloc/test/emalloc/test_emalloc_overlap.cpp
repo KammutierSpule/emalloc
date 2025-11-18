@@ -492,3 +492,6 @@ TEST(MemoryOverlapDetection, ZeroSizeAllocationSafety) {
 
   CHECK(verify_no_overlaps());
 }
+
+// EOF
+// /////////////////////////////////////////////////////////////////////////////

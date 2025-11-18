@@ -458,3 +458,6 @@ TEST(BenchmarkTests, FreeFromLast1025) {
     CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
   }
 }
+
+// EOF
+// /////////////////////////////////////////////////////////////////////////////

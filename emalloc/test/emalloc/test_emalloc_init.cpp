@@ -99,3 +99,6 @@ TEST(Initialization, valid_config) {
 
   CHECK_EQUAL(EMALLOC_OK, emalloc_init(&emalloc_ctx, &emalloc_configuration));
 }
+
+// EOF
+// /////////////////////////////////////////////////////////////////////////////

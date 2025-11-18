@@ -18,6 +18,7 @@
 #include <CppUTest/TestHarness.h>
 #include <CppUTest/UtestMacros.h>
 #include <emalloc/emalloc.h>
+#include "helper_log.hpp"
 
 // clang-format off
 // NOLINTBEGIN
@@ -142,6 +143,7 @@ TEST(MemoryFragmentation, CoalescingReducesFragmentation) {
   // Free blocks 0,1,2 (adjacent) and 7,8,9 (adjacent)
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[0]));
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[1]));
+
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[2]));
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[7]));
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[8]));
@@ -340,3 +342,6 @@ TEST(MemoryFragmentation, PartialCoalescingScenario) {
   uint32_t too_large = emalloc_alloc(&emalloc_ctx, 1600);
   CHECK_EQUAL(EMALLOC_ERR_NO_EXTERNAL_MEMORY, too_large);
 }
+
+// EOF
+// /////////////////////////////////////////////////////////////////////////////

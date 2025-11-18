@@ -209,3 +209,6 @@ TEST(AllocFree, StressTest) {
   uint32_t offset = emalloc_alloc(&emalloc_ctx, EXT_RAM_SIZE);
   CHECK_EQUAL(0, offset);
 }
+
+// EOF
+// /////////////////////////////////////////////////////////////////////////////
