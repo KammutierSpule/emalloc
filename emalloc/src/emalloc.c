@@ -462,6 +462,8 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
         }
       }
     } else {
+      uint8_t shift_state = 0;
+
       EMALLOC_STATS_INC_IF(2);
       if (is_node_free(&nodes[a_released_offset]) &&
           is_node_free(&nodes[a_released_offset + 1])) {
@@ -483,6 +485,8 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
             EMALLOC_STATS_INC_RDWR(2 + 2);
           }
           */
+
+          /*
           // Shift remaining nodes
           for (uint32_t j = a_released_offset + 1;
                j < (a_emalloc_ctx->node_count - 1); ++j) {
@@ -491,14 +495,14 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
             nodes[j] = nodes[j + 1];
             EMALLOC_STATS_INC_RDWR(2 * 2);
           }
+          */
 
-          a_emalloc_ctx->node_count--;
-          a_emalloc_ctx->node_free_count--;
-          EMALLOC_STATS_INC_RDWR(2);
+          EMALLOC_STATS_INC_RDWR(1);
+          shift_state = 0x01;
         }
       }
 
-      EMALLOC_STATS_INC_IF(1);
+      EMALLOC_STATS_INC_IF(2);
       if (is_node_free(&nodes[a_released_offset - 1]) &&
           is_node_free(&nodes[a_released_offset])) {
         EMALLOC_STATS_INC_IF(1);
@@ -519,7 +523,37 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
             EMALLOC_STATS_INC_RDWR(2 + 2);
           }
           */
+          /*
           // Shift remaining nodes
+          for (uint32_t j = a_released_offset;
+               j < (a_emalloc_ctx->node_count - 1); ++j) {
+            EMALLOC_STATS_INC_LOOPS(1);
+
+            nodes[j] = nodes[j + 1];
+            EMALLOC_STATS_INC_RDWR(2 * 2);
+          }
+          */
+          EMALLOC_STATS_INC_RDWR(1);
+          shift_state |= 0x02;
+        }
+      }
+
+      // Shift remaining nodes ?
+      EMALLOC_STATS_INC_IF(1);
+      if (shift_state == 0x01) {
+        for (uint32_t j = a_released_offset + 1;
+             j < (a_emalloc_ctx->node_count - 1); ++j) {
+          EMALLOC_STATS_INC_LOOPS(1);
+
+          nodes[j] = nodes[j + 1];
+          EMALLOC_STATS_INC_RDWR(2 * 2);
+        }
+
+        a_emalloc_ctx->node_count--;
+        a_emalloc_ctx->node_free_count--;
+        EMALLOC_STATS_INC_RDWR(2);
+      } else {
+        if (shift_state == 0x02) {
           for (uint32_t j = a_released_offset;
                j < (a_emalloc_ctx->node_count - 1); ++j) {
             EMALLOC_STATS_INC_LOOPS(1);
@@ -531,6 +565,20 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
           a_emalloc_ctx->node_count--;
           a_emalloc_ctx->node_free_count--;
           EMALLOC_STATS_INC_RDWR(2);
+        } else {
+          if (shift_state == (0x02 | 0x01)) {
+            for (uint32_t j = a_released_offset;
+                 j < (a_emalloc_ctx->node_count - 2); ++j) {
+              EMALLOC_STATS_INC_LOOPS(1);
+
+              nodes[j] = nodes[j + 2];
+              EMALLOC_STATS_INC_RDWR(2 * 2);
+            }
+
+            a_emalloc_ctx->node_count -= 2;
+            a_emalloc_ctx->node_free_count -= 2;
+            EMALLOC_STATS_INC_RDWR(2);
+          }
         }
       }
     }
