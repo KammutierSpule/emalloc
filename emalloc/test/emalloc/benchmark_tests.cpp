@@ -19,14 +19,14 @@
 #include <CppUTest/UtestMacros.h>
 #include <emalloc/emalloc.h>
 #include <cstdio>
+#include <vector>
 
 extern FILE* s_benchmark_tests_log_file;
 #define EMALLOC_MIN_MEMORY_SIZE (16)
 
-// clang-format off
 // NOLINTBEGIN
-TEST_GROUP(BenchmarkTests){
-  static const uint32_t EXT_RAM_SIZE = 512*1024;
+TEST_GROUP(BenchmarkTests) {
+  static const uint32_t EXT_RAM_SIZE = 512 * 1024;
   // This allows the teorically maximum nodes to be allocated
   static const uint32_t MAX_NODES = EXT_RAM_SIZE / EMALLOC_MIN_MEMORY_SIZE;
 
@@ -35,6 +35,9 @@ TEST_GROUP(BenchmarkTests){
 
   sEMALLOC_ctx emalloc_ctx;
 
+  // Use fixed seed for reproducibility
+  uint32_t random_seed = 42;
+
   uint32_t requested_size = 0;
   uint32_t remain_size = EXT_RAM_SIZE;
 
@@ -42,13 +45,12 @@ TEST_GROUP(BenchmarkTests){
     if (!s_benchmark_tests_log_file) {
       s_benchmark_tests_log_file = fopen("BenchmarkTests.log", "w");
 
-      fprintf( s_benchmark_tests_log_file, "EXT_RAM_SIZE:%u, MAX_NODES:%u\n",
-        EXT_RAM_SIZE, MAX_NODES);
+      fprintf(s_benchmark_tests_log_file, "EXT_RAM_SIZE:%u, MAX_NODES:%u\n",
+              EXT_RAM_SIZE, MAX_NODES);
 
-      fprintf( s_benchmark_tests_log_file,
-        "alloc/free\n");
-      fprintf( s_benchmark_tests_log_file,
-        "TestName     n_ifs\tn_loops\trd_wr,\tn_ifs\tn_loops\trd_wr\n");
+      fprintf(s_benchmark_tests_log_file, "alloc/free\n");
+      fprintf(s_benchmark_tests_log_file,
+              "TestName     n_ifs\tn_loops\trd_wr,\tn_ifs\tn_loops\trd_wr\n");
     }
 
     // Initialize buffers
@@ -63,27 +65,26 @@ TEST_GROUP(BenchmarkTests){
 
     emalloc_reset_statistics();
 
-    CHECK_EQUAL(EMALLOC_OK,
-      emalloc_init(&emalloc_ctx,
-        &emalloc_configuration));
+    CHECK_EQUAL(EMALLOC_OK, emalloc_init(&emalloc_ctx, &emalloc_configuration));
   }
 
   void teardown() {
     sEMALLOC_statistics stats;
     emalloc_get_statistics(&stats);
 
-    fprintf( s_benchmark_tests_log_file,
-      "\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
-      stats.alloc.n_calls?(stats.alloc.n_ifs / stats.alloc.n_calls):0,
-      stats.alloc.n_calls?(stats.alloc.n_loops / stats.alloc.n_calls):0,
-      stats.alloc.n_calls?(stats.alloc.n_nodes_rd_wr / stats.alloc.n_calls):0,
-      stats.free.n_calls?(stats.free.n_ifs / stats.free.n_calls):0,
-      stats.free.n_calls?(stats.free.n_loops/ stats.free.n_calls):0,
-      stats.free.n_calls?(stats.free.n_nodes_rd_wr / stats.free.n_calls):0);
+    fprintf(
+        s_benchmark_tests_log_file, "\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+        stats.alloc.n_calls ? (stats.alloc.n_ifs / stats.alloc.n_calls) : 0,
+        stats.alloc.n_calls ? (stats.alloc.n_loops / stats.alloc.n_calls) : 0,
+        stats.alloc.n_calls ? (stats.alloc.n_nodes_rd_wr / stats.alloc.n_calls)
+                            : 0,
+        stats.free.n_calls ? (stats.free.n_ifs / stats.free.n_calls) : 0,
+        stats.free.n_calls ? (stats.free.n_loops / stats.free.n_calls) : 0,
+        stats.free.n_calls ? (stats.free.n_nodes_rd_wr / stats.free.n_calls)
+                           : 0);
   }
 };
 // NOLINTEND
-// clang-format on
 
 // From: "TLSF: A new dynamic memory allocator for real-time systems"
 // "Test-1 malloc/free worst case for First-Fit. [...]
@@ -456,6 +457,698 @@ TEST(BenchmarkTests, FreeFromLast1025) {
 
   for (int32_t i = (kNAllocationsNeed - 1); i >= 0; i--) {
     CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
+  }
+}
+
+// Alloc 5, release 3, 8 + 16 bytes
+TEST(BenchmarkTests, Alloc5Release3_16b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc5Release3_16b");
+
+  static constexpr uint32_t kNAllocations = 5;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 8 + (rand_r(&random_seed) % (16));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 3; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 5, release 3, 16 + 64 bytes
+TEST(BenchmarkTests, Alloc5Release3_64b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc5Release3_64b");
+
+  static constexpr uint32_t kNAllocations = 5;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (64));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 3; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 5, release 3, 16 + 128 bytes
+TEST(BenchmarkTests, Alloc5Release3_128b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc5Release3_128b");
+
+  static constexpr uint32_t kNAllocations = 5;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (128));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 3; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 5, release 3, 16 + 512 bytes
+TEST(BenchmarkTests, Alloc5Release3_512b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc5Release3_512b");
+
+  static constexpr uint32_t kNAllocations = 5;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (512));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 3; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 5, release 3, 16 + 1024 bytes
+TEST(BenchmarkTests, Alloc5Release3_1024b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc5Release3_1024b");
+
+  static constexpr uint32_t kNAllocations = 5;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (512));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 3; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 5, release 3, 16 + 2 Kbytes
+TEST(BenchmarkTests, Alloc5Release3_2k) {
+  fprintf(s_benchmark_tests_log_file, "Alloc5Release3_2k");
+
+  static constexpr uint32_t kNAllocations = 5;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (2048));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 3; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 5, release 3, 1024 + 2 Kbytes
+TEST(BenchmarkTests, Alloc5Release3_1to2k) {
+  fprintf(s_benchmark_tests_log_file, "Alloc5Release3_1to2k");
+
+  static constexpr uint32_t kNAllocations = 5;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 1024 + (rand_r(&random_seed) % (2048));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 3; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 6, release 2, 8 + 16 bytes
+TEST(BenchmarkTests, Alloc6Release2_16b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc6Release2_16b");
+
+  static constexpr uint32_t kNAllocations = 6;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 8 + (rand_r(&random_seed) % (16));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 2; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 6, release 2, 16 + 64 bytes
+TEST(BenchmarkTests, Alloc6Release2_64b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc6Release2_64b");
+
+  static constexpr uint32_t kNAllocations = 6;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (64));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 2; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 6, release 2, 16 + 128 bytes
+TEST(BenchmarkTests, Alloc6Release2_128b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc6Release2_128b");
+
+  static constexpr uint32_t kNAllocations = 6;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (128));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 2; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 6, release 2, 16 + 512 bytes
+TEST(BenchmarkTests, Alloc6Release2_512b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc6Release2_512b");
+
+  static constexpr uint32_t kNAllocations = 6;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (512));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 2; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 6, release 2, 16 + 1024 bytes
+TEST(BenchmarkTests, Alloc6Release2_1024b) {
+  fprintf(s_benchmark_tests_log_file, "Alloc6Release2_1024b");
+
+  static constexpr uint32_t kNAllocations = 6;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (512));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 2; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 6, release 2, 16 + 2 Kbytes
+TEST(BenchmarkTests, Alloc6Release2_2k) {
+  fprintf(s_benchmark_tests_log_file, "Alloc6Release2_2k");
+
+  static constexpr uint32_t kNAllocations = 6;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 16 + (rand_r(&random_seed) % (2048));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 2; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+// Alloc 6, release 2, 1024 + 2 Kbytes
+TEST(BenchmarkTests, Alloc6Release2_1to2k) {
+  fprintf(s_benchmark_tests_log_file, "Alloc6Release2_1to2k");
+
+  static constexpr uint32_t kNAllocations = 6;
+
+  std::vector<uint32_t> allocation_table;
+
+  while (true) {
+    // Allocate phase
+    for (int i = 0; i < kNAllocations; i++) {
+      const uint32_t size = 1024 + (rand_r(&random_seed) % (2048));
+      const uint32_t offset = emalloc_alloc(&emalloc_ctx, size);
+
+      if (offset != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
+        allocation_table.push_back(offset);
+      } else {
+        return;  // Until memory exaustion
+      }
+    }
+
+    // Free phase - free random allocations
+    for (int i = 0; i < 2; i++) {
+      if (!allocation_table.empty()) {
+        size_t idx = rand_r(&random_seed) % allocation_table.size();
+        CHECK_EQUAL(EMALLOC_OK,
+                    emalloc_free(&emalloc_ctx, allocation_table[idx]));
+
+        allocation_table.erase(allocation_table.begin() + idx);
+      }
+    }
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeOdd) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeOdd");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  emalloc_reset_statistics();
+
+  for (uint32_t i = 1; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeOddReversed) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeOddReversed");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  emalloc_reset_statistics();
+
+  for (int32_t i = (kNAllocations - 1); i >= 1; i -= 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeEven) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeEven");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  emalloc_reset_statistics();
+
+  for (uint32_t i = 0; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeEvenReversed) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeEvenReversed");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  emalloc_reset_statistics();
+
+  for (int32_t i = ((kNAllocations - 1) - 1); i >= 0; i -= 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeEvenOdd) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeEvenOdd");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  for (uint32_t i = 0; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+
+  emalloc_reset_statistics();
+
+  for (uint32_t i = 1; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeOddEven) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeOddEven");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  for (uint32_t i = 1; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+
+  emalloc_reset_statistics();
+
+  for (uint32_t i = 0; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeEvenOddReversed) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeEvenOddReversed");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  for (uint32_t i = 0; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+
+  emalloc_reset_statistics();
+
+  for (int32_t i = (kNAllocations - 1); i >= 1; i -= 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+}
+
+TEST(BenchmarkTests, AllocAll16FreeOddEvenReversed) {
+  fprintf(s_benchmark_tests_log_file, "AllocAll16FreeOddEvenReversed");
+
+  static constexpr uint32_t kAllocationSize = 16;
+  static constexpr uint32_t kNAllocations = EXT_RAM_SIZE / kAllocationSize;
+
+  std::vector<uint32_t> allocation_table;
+
+  allocation_table.resize(kNAllocations);
+
+  // Allocate all
+  for (uint32_t i = 0; i < kNAllocations; i++) {
+    const uint32_t offset = emalloc_alloc(&emalloc_ctx, kAllocationSize);
+
+    CHECK_EQUAL(0, offset & EMALLOC_ERR_MASK);
+    allocation_table[i] = offset;
+  }
+
+  for (uint32_t i = 1; i < kNAllocations; i += 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
+  }
+
+  emalloc_reset_statistics();
+
+  for (int32_t i = ((kNAllocations - 1) - 1); i >= 0; i -= 2) {
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, allocation_table[i]));
   }
 }
 
