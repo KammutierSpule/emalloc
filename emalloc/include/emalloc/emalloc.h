@@ -46,6 +46,18 @@ extern "C" {
 #define EMALLOC_STATISTICS 0
 #endif
 
+#ifndef EMALLOC_USE_ASSERT
+#define EMALLOC_USE_ASSERT 0
+#define EMALLOC_ASSERT()
+#endif
+
+#if (EMALLOC_USE_ASSERT == 0)
+#define EMALLOC_ASSERT()
+#else
+#include <assert.h>
+#define EMALLOC_ASSERT(a) assert(a)
+#endif
+
 typedef struct s_emalloc_config {
   uint64_t* nodes_poll;                 ///< each node size is 8 bytes
   uint32_t nodes_poll_length;           ///< number of nodes in the nodes_poll
@@ -62,6 +74,8 @@ typedef struct s_emalloc_state {
   uint32_t low_free_node_idx;           ///< lowest index of a free node
   uint32_t hi_free_node_idx;            ///< highest index of a free node
   uint32_t start_idx_of_unsorted_node;  ///< 0xFFFFFFFF means it is sorted.
+  uint32_t start_idx_of_alloc_not_used;
+  uint32_t allocated_but_not_used_count;
 } sEMALLOC_ctx;
 
 // Return errors

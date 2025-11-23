@@ -26,13 +26,15 @@
 #define EMALLOC_ALLOC_INFO_MASK (0x0000000F)
 #define EMALLOC_IS_SORTED (0xFFFFFFFF)
 #define EMALLOC_HIGHEST_IDX (0xFFFFFFFF)
+#define EMALLOC_NO_DANGLING (0xFFFFFFFF)
 
 typedef enum e_emalloc_alloc_info {
   /// Node is free, alloc_info has size info
   EMALLOC_NODE_FREE = 0x00,
 
   /// Node is allocated, alloc_info has size info
-  EMALLOC_NODE_VARIABLE_SIZE = 0x0F,
+  EMALLOC_NODE_VARIABLE_SIZE = 0x0E,
+  EMALLOC_NODE_ALLOCATED_BUT_NOT_USED = 0x0F
 } eEMALLOC_alloc_info;
 
 typedef struct s_emalloc_node {
@@ -103,6 +105,8 @@ uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
   a_emalloc_ctx->low_free_node_idx = EMALLOC_HIGHEST_IDX;
   a_emalloc_ctx->hi_free_node_idx = 0;
   a_emalloc_ctx->start_idx_of_unsorted_node = EMALLOC_IS_SORTED;
+  a_emalloc_ctx->start_idx_of_alloc_not_used = EMALLOC_NO_DANGLING;
+  a_emalloc_ctx->allocated_but_not_used_count = 0;
 
   // Initialize first node, covering entire external memory
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_configuration->nodes_poll;
@@ -368,15 +372,18 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
         nodes[0].alloc_info += nodes[1].alloc_info;
         EMALLOC_STATS_INC_RDWR(2);
 
-        // Shift remaining nodes
-        for (uint32_t j = 1; j < (a_emalloc_ctx->node_count - 1); ++j) {
-          EMALLOC_STATS_INC_LOOPS(1);
-
-          nodes[j] = nodes[j + 1];
-          EMALLOC_STATS_INC_RDWR(2 * 2);
+        EMALLOC_STATS_INC_IF(1);
+        if (a_emalloc_ctx->node_count > 2) {
+          nodes[1].offset |= EMALLOC_NODE_ALLOCATED_BUT_NOT_USED;
+          a_emalloc_ctx->start_idx_of_alloc_not_used = 1;
+          a_emalloc_ctx->allocated_but_not_used_count++;
+          EMALLOC_STATS_INC_RDWR(3);
+        } else {
+          a_emalloc_ctx->start_idx_of_alloc_not_used = EMALLOC_NO_DANGLING;
+          a_emalloc_ctx->allocated_but_not_used_count = 0;
+          EMALLOC_STATS_INC_RDWR(2);
         }
 
-        a_emalloc_ctx->node_count--;
         a_emalloc_ctx->node_free_count--;
         EMALLOC_STATS_INC_RDWR(2);
       }
@@ -449,47 +456,57 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
       // Shift remaining nodes ?
       EMALLOC_STATS_INC_IF(1);
       if (shift_state == 0x01) {
-        for (uint32_t j = a_released_offset + 1;
-             j < (a_emalloc_ctx->node_count - 1); ++j) {
-          EMALLOC_STATS_INC_LOOPS(1);
+        const uint32_t dangling_idx = a_released_offset + 1;
+        nodes[dangling_idx].offset |= EMALLOC_NODE_ALLOCATED_BUT_NOT_USED;
+        a_emalloc_ctx->allocated_but_not_used_count++;
+        EMALLOC_STATS_INC_RDWR(2);
 
-          nodes[j] = nodes[j + 1];
-          EMALLOC_STATS_INC_RDWR(2 * 2);
+        EMALLOC_STATS_INC_IF(1);
+        if (a_emalloc_ctx->start_idx_of_alloc_not_used > dangling_idx) {
+          a_emalloc_ctx->start_idx_of_alloc_not_used = dangling_idx;
+          EMALLOC_STATS_INC_RDWR(1);
         }
 
-        a_emalloc_ctx->node_count--;
         a_emalloc_ctx->node_free_count--;
         EMALLOC_STATS_INC_RDWR(2);
       } else {
         if (shift_state == 0x02) {
-          for (uint32_t j = a_released_offset;
-               j < (a_emalloc_ctx->node_count - 1); ++j) {
-            EMALLOC_STATS_INC_LOOPS(1);
+          const uint32_t dangling_idx = a_released_offset;
 
-            nodes[j] = nodes[j + 1];
-            EMALLOC_STATS_INC_RDWR(2 * 2);
+          nodes[dangling_idx].offset |= EMALLOC_NODE_ALLOCATED_BUT_NOT_USED;
+          a_emalloc_ctx->allocated_but_not_used_count++;
+          EMALLOC_STATS_INC_RDWR(2);
+
+          EMALLOC_STATS_INC_IF(1);
+          if (a_emalloc_ctx->start_idx_of_alloc_not_used > dangling_idx) {
+            a_emalloc_ctx->start_idx_of_alloc_not_used = dangling_idx;
+            EMALLOC_STATS_INC_RDWR(1);
           }
 
-          a_emalloc_ctx->node_count--;
           a_emalloc_ctx->node_free_count--;
           EMALLOC_STATS_INC_RDWR(2);
 
           new_free_idx = a_released_offset - 1;
         } else {
           if (shift_state == (0x02 | 0x01)) {
-            for (uint32_t j = a_released_offset;
-                 j < (a_emalloc_ctx->node_count - 2); ++j) {
-              EMALLOC_STATS_INC_LOOPS(1);
-
-              nodes[j] = nodes[j + 2];
-              EMALLOC_STATS_INC_RDWR(2 * 2);
-            }
-
-            a_emalloc_ctx->node_count -= 2;
-            a_emalloc_ctx->node_free_count -= 2;
+            nodes[a_released_offset + 0].offset |=
+                EMALLOC_NODE_ALLOCATED_BUT_NOT_USED;
+            nodes[a_released_offset + 1].offset |=
+                EMALLOC_NODE_ALLOCATED_BUT_NOT_USED;
             EMALLOC_STATS_INC_RDWR(2);
 
+            const uint32_t dangling_idx = a_released_offset + 0;
+            EMALLOC_STATS_INC_IF(1);
+            if (a_emalloc_ctx->start_idx_of_alloc_not_used > dangling_idx) {
+              a_emalloc_ctx->start_idx_of_alloc_not_used = dangling_idx;
+              EMALLOC_STATS_INC_RDWR(1);
+            }
+
+            a_emalloc_ctx->allocated_but_not_used_count += 2;
+            a_emalloc_ctx->node_free_count -= 2;
             new_free_idx = a_released_offset - 1;
+
+            EMALLOC_STATS_INC_RDWR(2);
           } else {
             // No merged happened
           }
@@ -507,6 +524,7 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
   EMALLOC_STATS_INC_IF(1);
   if (new_free_idx >= (a_emalloc_ctx->node_count - 1)) {
     a_emalloc_ctx->hi_free_node_idx = a_emalloc_ctx->node_count - 1;
+    EMALLOC_STATS_INC_RDWR(1);
   } else {
     EMALLOC_STATS_INC_IF(1);
     if (new_free_idx > a_emalloc_ctx->hi_free_node_idx) {
@@ -514,6 +532,102 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_offset) {
       EMALLOC_STATS_INC_RDWR(1);
     }
   }
+}
+
+void de_dangling(sEMALLOC_ctx* a_emalloc_ctx) {
+  EMALLOC_ASSERT(a_emalloc_ctx);
+  EMALLOC_ASSERT(a_emalloc_ctx->allocated_but_not_used_count > 0);
+  EMALLOC_ASSERT(a_emalloc_ctx->node_count > 2);
+  EMALLOC_ASSERT(a_emalloc_ctx->start_idx_of_alloc_not_used > 0);
+
+  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
+
+  EMALLOC_ASSERT((nodes[a_emalloc_ctx->start_idx_of_alloc_not_used].offset &
+                  EMALLOC_ALLOC_INFO_MASK) ==
+                 EMALLOC_NODE_ALLOCATED_BUT_NOT_USED);
+
+  // Back is before the dangling index, Front is after the dangling index.
+  uint32_t back = a_emalloc_ctx->start_idx_of_alloc_not_used - 1;
+  EMALLOC_STATS_INC_RDWR(1);
+
+  EMALLOC_ASSERT((nodes[back].offset & EMALLOC_ALLOC_INFO_MASK) !=
+                 EMALLOC_NODE_ALLOCATED_BUT_NOT_USED);
+
+  // Compact the array by removing dangling nodes and merging free nodes
+  uint32_t write_idx = a_emalloc_ctx->start_idx_of_alloc_not_used;
+  uint32_t read_idx = write_idx;
+
+  // Skip all consecutive dangling nodes
+  EMALLOC_STATS_INC_RDWR(1);
+  while (read_idx < a_emalloc_ctx->node_count &&
+         ((nodes[read_idx].offset & EMALLOC_ALLOC_INFO_MASK) ==
+          EMALLOC_NODE_ALLOCATED_BUT_NOT_USED)) {
+    EMALLOC_STATS_INC_LOOPS(1);
+    EMALLOC_STATS_INC_RDWR(1);
+    read_idx++;
+    a_emalloc_ctx->allocated_but_not_used_count--;
+    EMALLOC_STATS_INC_RDWR(1);
+  }
+
+  uint32_t last_idx_free = back;  // this is the min start idx
+
+  // Shift remaining nodes down
+  while (read_idx < a_emalloc_ctx->node_count) {
+    EMALLOC_STATS_INC_LOOPS(1);
+
+    EMALLOC_STATS_INC_IF(1);
+    EMALLOC_STATS_INC_RDWR(1);
+    const uint32_t cur_offset =
+        (nodes[read_idx].offset & EMALLOC_ALLOC_INFO_MASK);
+    if (cur_offset != EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
+      EMALLOC_STATS_INC_IF(1);
+      if (cur_offset == EMALLOC_NODE_FREE) {
+        last_idx_free = write_idx;
+      }
+
+      nodes[write_idx] = nodes[read_idx];
+      EMALLOC_STATS_INC_RDWR(2 * 2);
+
+      write_idx++;
+    } else {
+      a_emalloc_ctx->allocated_but_not_used_count--;
+      EMALLOC_STATS_INC_RDWR(1);
+    }
+    read_idx++;
+  }
+
+  EMALLOC_ASSERT(a_emalloc_ctx->allocated_but_not_used_count == 0);
+
+  a_emalloc_ctx->node_count = write_idx;
+
+  // Now try to merge free nodes from end to back
+  for (uint32_t i = last_idx_free /*a_emalloc_ctx->node_count*/; i > back;
+       --i) {
+    EMALLOC_STATS_INC_LOOPS(1);
+
+    EMALLOC_STATS_INC_IF(2);
+    if (is_node_free(&nodes[i - 1]) && is_node_free(&nodes[i])) {
+      EMALLOC_STATS_INC_IF(1);
+      EMALLOC_STATS_INC_RDWR(3);
+      if ((nodes[i - 1].offset + nodes[i - 1].alloc_info) == nodes[i].offset) {
+        nodes[i - 1].alloc_info += nodes[i].alloc_info;
+        EMALLOC_STATS_INC_RDWR(2);
+
+        // Shift remaining nodes
+        for (uint32_t j = i; j < (a_emalloc_ctx->node_count - 1); ++j) {
+          EMALLOC_STATS_INC_LOOPS(1);
+          nodes[j] = nodes[j + 1];
+          EMALLOC_STATS_INC_RDWR(4);
+        }
+
+        a_emalloc_ctx->node_count--;
+        a_emalloc_ctx->node_free_count--;
+        EMALLOC_STATS_INC_RDWR(2);
+      }
+    }
+  }
+
+  a_emalloc_ctx->start_idx_of_alloc_not_used = EMALLOC_NO_DANGLING;
 }
 
 uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
@@ -537,6 +651,10 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
     // Round to min alloc size
     a_alloc_size = ((a_alloc_size >> EMALLOC_MIN_ALLOC_SHIFTS) + 1)
                    << EMALLOC_MIN_ALLOC_SHIFTS;
+  }
+
+  if (a_emalloc_ctx->allocated_but_not_used_count) {
+    de_dangling(a_emalloc_ctx);
   }
 
   const int32_t idx = find_free_node(a_emalloc_ctx, a_alloc_size);
