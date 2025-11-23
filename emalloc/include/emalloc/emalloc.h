@@ -29,7 +29,12 @@ extern "C" {
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
 
-// INSERTION SORT gives the best results on simulations
+// INSERTION SORT
+//  Worst-case performance  O( n^2 )
+//  Best-case performance O( n )
+//  Average performance O( n^2 )
+// It gives the best results on simulations.
+
 #define EMALLOC_USE_BUBBLE_SORT 0
 #define EMALLOC_USE_SHELL_SORT 0
 #define EMALLOC_USE_INSERTION_SORT 1
