@@ -61,7 +61,7 @@ TEST(MemoryFragmentation, CheckerboadPattern) {
 
   // Free every other block (checkerboard pattern)
   for (int i = 0; i < 16; i += 2) {
-    emalloc_free(&emalloc_ctx, offsets[i]);
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
   }
 
   // Now we have 8 free blocks of 256 bytes each
@@ -83,12 +83,12 @@ TEST(MemoryFragmentation, SwissCheesePattern) {
   }
 
   // Free random blocks to create "swiss cheese" holes
-  emalloc_free(&emalloc_ctx, offsets[1]);
-  emalloc_free(&emalloc_ctx, offsets[5]);
-  emalloc_free(&emalloc_ctx, offsets[7]);
-  emalloc_free(&emalloc_ctx, offsets[11]);
-  emalloc_free(&emalloc_ctx, offsets[15]);
-  emalloc_free(&emalloc_ctx, offsets[18]);
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[1]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[5]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[7]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[11]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[15]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[18]));
 
   // Cannot allocate large contiguous block
   uint32_t large = emalloc_alloc(&emalloc_ctx, 1000);
@@ -166,7 +166,7 @@ TEST(MemoryFragmentation, ReverseOrderCoalescing) {
 
   // Free in reverse order
   for (int i = 4; i >= 0; i--) {
-    emalloc_free(&emalloc_ctx, offsets[i]);
+    CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
   }
 
   // Should coalesce into one large block
@@ -181,12 +181,12 @@ TEST(MemoryFragmentation, RandomOrderCoalescing) {
   }
 
   // Free in random order: 2, 4, 3, 1, 5, 0
-  emalloc_free(&emalloc_ctx, offsets[2]);
-  emalloc_free(&emalloc_ctx, offsets[4]);
-  emalloc_free(&emalloc_ctx, offsets[3]);
-  emalloc_free(&emalloc_ctx, offsets[1]);
-  emalloc_free(&emalloc_ctx, offsets[5]);
-  emalloc_free(&emalloc_ctx, offsets[0]);
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[2]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[4]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[3]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[1]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[5]));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[0]));
 
   // All should coalesce
   uint32_t full = emalloc_alloc(&emalloc_ctx, 1800);
@@ -207,6 +207,9 @@ TEST(MemoryFragmentation, BoundaryFragmentation) {
   for (int i = 0; i < 10; i++) {
     CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, dummy[i]));
   }
+
+  debug_header(&emalloc_ctx);
+  debug_all_nodes_poll(&emalloc_ctx);
 
   // Should be able to allocate in coalesced middle
   uint32_t middle = emalloc_alloc(&emalloc_ctx, 1000);
