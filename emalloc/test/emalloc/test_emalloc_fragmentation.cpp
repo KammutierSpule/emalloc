@@ -208,9 +208,6 @@ TEST(MemoryFragmentation, BoundaryFragmentation) {
     CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, dummy[i]));
   }
 
-  debug_header(&emalloc_ctx);
-  debug_all_nodes_poll(&emalloc_ctx);
-
   // Should be able to allocate in coalesced middle
   uint32_t middle = emalloc_alloc(&emalloc_ctx, 1000);
   CHECK(middle != EMALLOC_ERR_NO_EXTERNAL_MEMORY);

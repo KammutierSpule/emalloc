@@ -18,6 +18,7 @@
 #include <CppUTest/TestHarness.h>
 #include <CppUTest/UtestMacros.h>
 #include <emalloc/emalloc.h>
+#include "helper_log.hpp"
 
 // clang-format off
 // NOLINTBEGIN
@@ -89,10 +90,17 @@ TEST(AllocFree, AllocateEntireMemory) {
 
 TEST(AllocFree, FreeAndReallocate) {
   uint32_t offset1 = emalloc_alloc(&emalloc_ctx, 256);
+
+  CHECK_EQUAL(2, emalloc_ctx.node_count);
+
   emalloc_free(&emalloc_ctx, offset1);
+
+  CHECK_EQUAL(1, emalloc_ctx.node_count);
 
   uint32_t offset2 = emalloc_alloc(&emalloc_ctx, 256);
   CHECK_EQUAL(0, offset2);
+
+  CHECK_EQUAL(2, emalloc_ctx.node_count);
 }
 
 TEST(AllocFree, OutOfMemoryAfterMultipleAllocations) {
@@ -188,25 +196,27 @@ TEST(AllocFree, StressTest) {
     // Allocate
     for (int i = 0; i < 10; i++) {
       offsets[i] = emalloc_alloc(&emalloc_ctx, 50 + (i * 10));
+      CHECK(offsets[i] != EMALLOC_ERR_NO_EXTERNAL_MEMORY);
     }
 
     // Free half
     for (int i = 0; i < 5; i++) {
       if (offsets[i] != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
-        emalloc_free(&emalloc_ctx, offsets[i]);
+        CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
       }
     }
 
     // Free remaining
     for (int i = 5; i < 10; i++) {
       if (offsets[i] != EMALLOC_ERR_NO_EXTERNAL_MEMORY) {
-        emalloc_free(&emalloc_ctx, offsets[i]);
+        CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[i]));
       }
     }
   }
 
   // Should be able to allocate entire memory after stress test
   uint32_t offset = emalloc_alloc(&emalloc_ctx, EXT_RAM_SIZE);
+
   CHECK_EQUAL(0, offset);
 }
 

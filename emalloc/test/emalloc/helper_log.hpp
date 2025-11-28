@@ -19,8 +19,17 @@
 
 // Function declaration
 // /////////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void debug_header(const sEMALLOC_ctx* a_ctx);
 void debug_all_nodes_poll(const sEMALLOC_ctx* a_ctx);
+
+#ifdef __cplusplus
+};
+#endif
 
 // EOF
 // /////////////////////////////////////////////////////////////////////////////
