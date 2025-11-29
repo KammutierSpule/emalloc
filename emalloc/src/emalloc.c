@@ -793,13 +793,16 @@ uint32_t de_dangling_and_search_best_fit(sEMALLOC_ctx* a_emalloc_ctx,
       // Best-fit search
       EMALLOC_STATS_INC_IF(1);
       if (read_alloc_info_bits == EMALLOC_NODE_FREE) {
-        EMALLOC_STATS_INC_IF(2);
         EMALLOC_STATS_INC_RDWR(1);
-        if ((read_node->alloc_info < best_fit_size) &&
-            (read_node->alloc_info >= a_alloc_size)) {
-          best_fit_size = read_node->alloc_info;
-          best_fit_idx = write_idx;  // the read node become now the write index
-          EMALLOC_STATS_INC_RDWR(2);
+        EMALLOC_STATS_INC_IF(1);
+        if (read_node->alloc_info >= a_alloc_size) {
+          EMALLOC_STATS_INC_IF(1);
+          if (read_node->alloc_info < best_fit_size) {
+            best_fit_size = read_node->alloc_info;
+            best_fit_idx =
+                write_idx;  // the read node become now the write index
+            EMALLOC_STATS_INC_RDWR(2);
+          }
         }
       }
 
