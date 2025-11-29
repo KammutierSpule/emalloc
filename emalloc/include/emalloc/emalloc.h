@@ -37,7 +37,10 @@ extern "C" {
 
 #define EMALLOC_USE_BUBBLE_SORT 0
 #define EMALLOC_USE_SHELL_SORT 0
-#define EMALLOC_USE_INSERTION_SORT 1
+#define EMALLOC_USE_SHELL_SORT_TOKUDA 0
+#define EMALLOC_USE_INSERTION_SORT 0
+#define EMALLOC_USE_INSERTION_SORT_BINARY 0
+#define EMALLOC_USE_INSERTION_SORT_SENTINEL 1
 #define EMALLOC_USE_HEAP_SORT_MAX 0
 
 #define EMALLOC_USE_SEARCH_INTERPOLATION 1
@@ -91,7 +94,7 @@ typedef struct s_emalloc_state {
   uint32_t low_free_node_idx;           ///< lowest index of a free node
   uint32_t hi_free_node_idx;            ///< highest index of a free node
   uint32_t start_idx_of_unsorted_node;  ///< 0xFFFFFFFF means it is sorted.
-  uint32_t start_idx_of_alloc_not_used;
+  uint32_t offset_before_unsorted_node;
   uint32_t allocated_but_not_used_count;
 } sEMALLOC_ctx;
 

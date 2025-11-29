@@ -20,6 +20,7 @@
 #include <emalloc/emalloc.h>
 #include <cstdio>
 #include <vector>
+#include "helper_log.hpp"
 
 extern FILE* s_benchmark_tests_log_file;
 #define EMALLOC_MIN_MEMORY_SIZE (16)
@@ -50,7 +51,8 @@ TEST_GROUP(BenchmarkTests) {
 
       fprintf(s_benchmark_tests_log_file, "alloc/free\n");
       fprintf(s_benchmark_tests_log_file,
-              "TestName     n_ifs\tn_loops\trd_wr,\tn_ifs\tn_loops\trd_wr\n");
+              "TestName     "
+              "n_ifs\tn_loops\trd_wr,\tn_ifs\tn_loops\trd_wr\tn_nodes\n");
     }
 
     // Initialize buffers
@@ -73,7 +75,7 @@ TEST_GROUP(BenchmarkTests) {
     emalloc_get_statistics(&stats);
 
     fprintf(
-        s_benchmark_tests_log_file, "\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+        s_benchmark_tests_log_file, "\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%u\n",
         stats.alloc.n_calls ? (stats.alloc.n_ifs / stats.alloc.n_calls) : 0,
         stats.alloc.n_calls ? (stats.alloc.n_loops / stats.alloc.n_calls) : 0,
         stats.alloc.n_calls ? (stats.alloc.n_nodes_rd_wr / stats.alloc.n_calls)
@@ -81,7 +83,8 @@ TEST_GROUP(BenchmarkTests) {
         stats.free.n_calls ? (stats.free.n_ifs / stats.free.n_calls) : 0,
         stats.free.n_calls ? (stats.free.n_loops / stats.free.n_calls) : 0,
         stats.free.n_calls ? (stats.free.n_nodes_rd_wr / stats.free.n_calls)
-                           : 0);
+                           : 0,
+        stats.free.n_calls ? emalloc_ctx.node_count : 0);
   }
 };
 // NOLINTEND
