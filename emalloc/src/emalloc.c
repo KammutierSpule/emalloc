@@ -1012,7 +1012,11 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
   sEMALLOC_node* node = &nodes[idx];
 
-  EMALLOC_ASSERT(!is_node_free(node));
+  // Check is need because it can be a double free
+  EMALLOC_STATS_INC_IF(1);
+  if (is_node_free(node)) {
+    return EMALLOC_ERR_OFFSET_NOT_FOUND;
+  }
 
   // Free node
   node->offset = a_allocated_offset;
