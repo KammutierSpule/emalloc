@@ -149,7 +149,6 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
   sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   // Start from the end and work backwards
-  int32_t best_fit_idx = -1;
 #if (EMALLOC_FIND_FREE_NODES_USE_BEST_FIT == 1)
   uint32_t best_fit_size = 0xFFFFFFFF;
 #endif
@@ -195,39 +194,31 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
       // debug_header(a_emalloc_ctx);
       // debug_all_nodes_poll(a_emalloc_ctx);
 
+      const int32_t merge_start_idx = j + 1;
+
       // Merge adjacent free nodes if any were found
       EMALLOC_STATS_INC_IF(1);
       if (merge_count > 0) {
-        int32_t merge_start_idx = j + 1;
+        // Update i to skip merged nodes
+        i = j;
+
+        // Set total size of the merge
         node[merge_start_idx].alloc_info = total_size;
         EMALLOC_STATS_INC_RDWR(1);
 
         a_emalloc_ctx->allocated_but_not_used_count += merge_count;
 
         EMALLOC_ASSERT(a_emalloc_ctx->node_free_count >= merge_count);
+
         a_emalloc_ctx->node_free_count -= merge_count;
         EMALLOC_STATS_INC_RDWR(2);
-
-        // Update i to skip merged nodes
-        i = merge_start_idx - 1;
       }
 
-      // Check if this is a better fit
-#if (EMALLOC_FIND_FREE_NODES_USE_BEST_FIT == 1)
-      EMALLOC_STATS_INC_IF(2);
-      if ((total_size >= a_size) && (total_size < best_fit_size)) {
-        best_fit_size = total_size;
-        best_fit_idx = j + 1;
-      }
-#endif
-#if (EMALLOC_FIND_FREE_NODES_USE_FIRST_FIT == 1)
-      EMALLOC_STATS_INC_IF(2);
+      // First-fit
+      EMALLOC_STATS_INC_IF(1);
       if (total_size >= a_size) {
-        best_fit_idx = j + 1;
-
-        return best_fit_idx;
+        return merge_start_idx;
       }
-#endif
     }
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
@@ -235,22 +226,15 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
 #endif
   }
 
-  uint32_t i = a_emalloc_ctx->node_count;
-
   EMALLOC_STATS_INC_IF(1);
 
-  if (best_fit_idx != -1) {
-    return best_fit_idx;
-  }
-
-  EMALLOC_STATS_INC_IF(1);
-
-  if (i == a_emalloc_ctx->nodes_poll_length) {
+  if (a_emalloc_ctx->node_count == a_emalloc_ctx->nodes_poll_length) {
     return -2;
   }
 
   return -1;
 }
+
 #if (EMALLOC_USE_BUBBLE_SORT == 1)
 // Sort nodes by offset (simple bubble sort for clarity)
 static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {

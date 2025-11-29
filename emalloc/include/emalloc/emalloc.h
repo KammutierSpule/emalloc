@@ -45,22 +45,6 @@ extern "C" {
 
 #define EMALLOC_USE_SEARCH_INTERPOLATION 1
 
-// Usually FirstFit is good enough
-#define EMALLOC_FIND_FREE_NODES_USE_FIRST_FIT 1
-#define EMALLOC_FIND_FREE_NODES_USE_BEST_FIT 0
-
-#if (EMALLOC_FIND_FREE_NODES_USE_FIRST_FIT == 1)
-#if (EMALLOC_FIND_FREE_NODES_USE_BEST_FIT == 1)
-#error choose only one
-#endif
-#endif
-
-#if (EMALLOC_FIND_FREE_NODES_USE_BEST_FIT == 1)
-#if (EMALLOC_FIND_FREE_NODES_USE_FIRST_FIT == 1)
-#error choose only one
-#endif
-#endif
-
 #ifndef EMALLOC_STATISTICS
 #define EMALLOC_STATISTICS 0
 #endif
