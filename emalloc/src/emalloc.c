@@ -17,6 +17,8 @@
 #include "../include/emalloc/emalloc.h"
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
@@ -122,8 +124,6 @@ uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
   a_emalloc_ctx->external_allocated_bytes = 0;
   a_emalloc_ctx->node_count = 1;
   a_emalloc_ctx->node_free_count = 1;
-  a_emalloc_ctx->low_free_node_idx = EMALLOC_HIGHEST_IDX;
-  a_emalloc_ctx->hi_free_node_idx = 0;
   a_emalloc_ctx->start_idx_of_unsorted_node = EMALLOC_IS_SORTED;
   a_emalloc_ctx->allocated_but_not_used_count = 0;
 
@@ -589,8 +589,6 @@ static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
 static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
-  uint32_t new_free_idx = a_released_idx;
-
   EMALLOC_ASSERT(is_node_free(&nodes[a_released_idx]));
 
   EMALLOC_STATS_INC_IF(1);
@@ -642,8 +640,6 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
           a_emalloc_ctx->node_count--;
           a_emalloc_ctx->node_free_count--;
           EMALLOC_STATS_INC_RDWR(2);
-
-          new_free_idx = a_released_idx - 1;
         }
       }
 #if (EMALLOC_INTERNAL_CHECKS == 1)
@@ -707,8 +703,6 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
 
           a_emalloc_ctx->node_free_count--;
           EMALLOC_STATS_INC_RDWR(2);
-
-          new_free_idx = a_released_idx - 1;
         } else {
           if (shift_state == (0x02 | 0x01)) {
             nodes[a_released_idx + 0].offset |=
@@ -719,7 +713,6 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
 
             a_emalloc_ctx->allocated_but_not_used_count += 2;
             a_emalloc_ctx->node_free_count -= 2;
-            new_free_idx = a_released_idx - 1;
 
             EMALLOC_STATS_INC_RDWR(2);
           } else {
@@ -731,24 +724,6 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
 #if (EMALLOC_INTERNAL_CHECKS == 1)
       EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
 #endif
-    }
-  }
-
-  EMALLOC_STATS_INC_IF(1);
-  if (new_free_idx < a_emalloc_ctx->low_free_node_idx) {
-    a_emalloc_ctx->low_free_node_idx = new_free_idx;
-    EMALLOC_STATS_INC_RDWR(1);
-  }
-
-  EMALLOC_STATS_INC_IF(1);
-  if (new_free_idx >= (a_emalloc_ctx->node_count - 1)) {
-    a_emalloc_ctx->hi_free_node_idx = a_emalloc_ctx->node_count - 1;
-    EMALLOC_STATS_INC_RDWR(1);
-  } else {
-    EMALLOC_STATS_INC_IF(1);
-    if (new_free_idx > a_emalloc_ctx->hi_free_node_idx) {
-      a_emalloc_ctx->hi_free_node_idx = new_free_idx;
-      EMALLOC_STATS_INC_RDWR(1);
     }
   }
 }
@@ -935,12 +910,19 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
   if (node->alloc_info > a_alloc_size) {
     if (node_count < a_emalloc_ctx->nodes_poll_length) {
       // Create new node for remainder
-      nodes[node_count].offset = (offset + a_alloc_size) | EMALLOC_NODE_FREE;
-      nodes[node_count].alloc_info = node->alloc_info - a_alloc_size;
+      a_emalloc_ctx->node_count = node_count + 1;
+
+      const uint32_t new_free_node_idx = node_count;
+
+      nodes[new_free_node_idx].offset =
+          (offset + a_alloc_size) | EMALLOC_NODE_FREE;
+      nodes[new_free_node_idx].alloc_info = node->alloc_info - a_alloc_size;
       node->alloc_info = a_alloc_size;
 
+      EMALLOC_STATS_INC_RDWR(5);
+
       EMALLOC_STATS_INC_IF(1);
-      if ((idx + 1) != node_count) {
+      if ((idx + 1) != new_free_node_idx) {
         // It is only unsorted if created node is not adjacent.
 
         const uint32_t start_idx_of_unsorted_node = idx + 1;
@@ -954,11 +936,6 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
           EMALLOC_STATS_INC_RDWR(2);
         }
       }
-
-      a_emalloc_ctx->hi_free_node_idx = node_count;
-      a_emalloc_ctx->node_count = node_count + 1;
-
-      EMALLOC_STATS_INC_RDWR(7);
     }
   }
 
@@ -992,9 +969,6 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
 
       EMALLOC_STATS_INC_RDWR(1);
       a_emalloc_ctx->start_idx_of_unsorted_node = EMALLOC_IS_SORTED;
-      // Lost free indexes order, set to unknown order
-      a_emalloc_ctx->low_free_node_idx = EMALLOC_HIGHEST_IDX;
-      a_emalloc_ctx->hi_free_node_idx = 0;
     }
   }
 
@@ -1032,10 +1006,6 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
   EMALLOC_STATS_INC_IF(1);
   if (a_emalloc_ctx->node_free_count > 1) {
     coalesce(a_emalloc_ctx, idx);
-  } else {
-    EMALLOC_STATS_INC_RDWR(2);
-    a_emalloc_ctx->low_free_node_idx = idx;
-    a_emalloc_ctx->hi_free_node_idx = idx;
   }
 
   return EMALLOC_OK;

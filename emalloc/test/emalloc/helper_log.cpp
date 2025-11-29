@@ -36,8 +36,6 @@ void debug_header(const sEMALLOC_ctx* a_ctx) {
   printf("external_allocated_bytes:%u\n", a_ctx->external_allocated_bytes);
   printf("node_count:%u\n", a_ctx->node_count);
   printf("node_free_count:%u\n", a_ctx->node_free_count);
-  printf("low_free_node_idx:%u\n", a_ctx->low_free_node_idx);
-  printf("hi_free_node_idx:%u\n", a_ctx->hi_free_node_idx);
   printf("start_idx_of_unsorted_node:%u\n", a_ctx->start_idx_of_unsorted_node);
   printf("allocated_but_not_used_count:%u\n",
          a_ctx->allocated_but_not_used_count);

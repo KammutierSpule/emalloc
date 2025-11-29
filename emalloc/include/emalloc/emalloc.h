@@ -91,8 +91,6 @@ typedef struct s_emalloc_state {
   uint32_t external_allocated_bytes;    ///< current external memory allocated
   uint32_t node_count;                  ///< current node counter
   uint32_t node_free_count;             ///< current free node counter
-  uint32_t low_free_node_idx;           ///< lowest index of a free node
-  uint32_t hi_free_node_idx;            ///< highest index of a free node
   uint32_t start_idx_of_unsorted_node;  ///< 0xFFFFFFFF means it is sorted.
   uint32_t offset_before_unsorted_node;
   uint32_t allocated_but_not_used_count;
