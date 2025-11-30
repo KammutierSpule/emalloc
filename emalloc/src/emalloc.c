@@ -149,18 +149,18 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
   sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   // Start from the end and work backwards
-#if (EMALLOC_FIND_FREE_NODES_USE_BEST_FIT == 1)
-  uint32_t best_fit_size = 0xFFFFFFFF;
-#endif
-
   for (int32_t i = a_emalloc_ctx->node_count - 1; i >= 0; --i) {
     EMALLOC_STATS_INC_LOOPS(1);
 
-    const bool isNodeFree = is_node_free(&node[i]);
+    const sEMALLOC_node* node_i = &node[i];
 
-    EMALLOC_STATS_INC_IF(2);
+    EMALLOC_STATS_INC_RDWR(1);
+    const bool isNodeFree =
+        (node_i->offset & EMALLOC_ALLOC_INFO_MASK) == EMALLOC_NODE_FREE;
+
+    EMALLOC_STATS_INC_IF(1);
     if (isNodeFree) {
-      uint32_t total_size = node[i].alloc_info;
+      uint32_t total_size = node_i->alloc_info;
       uint32_t merge_count = 0;
       EMALLOC_STATS_INC_RDWR(1);
 
@@ -190,9 +190,6 @@ static int32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
         merge_count++;
         j--;
       }
-
-      // debug_header(a_emalloc_ctx);
-      // debug_all_nodes_poll(a_emalloc_ctx);
 
       const int32_t merge_start_idx = j + 1;
 

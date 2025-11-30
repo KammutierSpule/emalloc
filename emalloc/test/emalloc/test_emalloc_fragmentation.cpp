@@ -143,8 +143,8 @@ TEST(MemoryFragmentation, CoalescingReducesFragmentation) {
   // Free blocks 0,1,2 (adjacent) and 7,8,9 (adjacent)
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[0]));
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[1]));
-
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[2]));
+
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[7]));
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[8]));
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offsets[9]));
