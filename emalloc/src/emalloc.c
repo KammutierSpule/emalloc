@@ -738,104 +738,101 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
     EMALLOC_STATS_INC_RDWR(1);
 
     EMALLOC_STATS_INC_IF(1);
-    if (write_alloc_info_bits == EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
-      // Check if we've finished searching
+    if (write_alloc_info_bits != EMALLOC_NODE_VARIABLE_SIZE) {
       EMALLOC_STATS_INC_IF(1);
-      if (read_idx == write_idx) {
+      if (write_alloc_info_bits == EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
+        // Check if we've finished searching
         EMALLOC_STATS_INC_IF(1);
-        if ((nodes[write_idx].offset & EMALLOC_ALLOC_INFO_MASK) ==
-            EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
-          a_emalloc_ctx->node_count--;
-          a_emalloc_ctx->allocated_but_not_used_count--;
-          EMALLOC_STATS_INC_RDWR(2);
-          break;
-        }
-      }
-
-      bool nodes_were_swap = false;
-
-      // Find non-dangling node from the end to swap with
-      while (read_idx > write_idx) {
-        EMALLOC_STATS_INC_LOOPS(1);
-
-        const sEMALLOC_node* read_node = &nodes[read_idx];
-        const uint32_t read_alloc_info_bits =
-            read_node->offset & EMALLOC_ALLOC_INFO_MASK;
-        EMALLOC_STATS_INC_RDWR(1);
-
-        EMALLOC_STATS_INC_IF(1);
-        if (read_alloc_info_bits != EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
-          // Swap nodes
-          nodes_were_swap = true;
-
-          nodes[write_idx] = *read_node;
-          EMALLOC_STATS_INC_RDWR(2 * 2);
-
-          a_emalloc_ctx->node_count--;
-          a_emalloc_ctx->allocated_but_not_used_count--;
-          EMALLOC_STATS_INC_RDWR(2);
-
-          read_idx--;
-
-          break;
+        if (read_idx == write_idx) {
+          EMALLOC_STATS_INC_IF(1);
+          if ((nodes[write_idx].offset & EMALLOC_ALLOC_INFO_MASK) ==
+              EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
+            a_emalloc_ctx->node_count--;
+            a_emalloc_ctx->allocated_but_not_used_count--;
+            EMALLOC_STATS_INC_RDWR(2);
+            break;
+          }
         }
 
-        // Skip dangling node at end
-        a_emalloc_ctx->node_count--;
-        a_emalloc_ctx->allocated_but_not_used_count--;
-        EMALLOC_STATS_INC_RDWR(2);
-        read_idx--;
-      }
+        // Find non-dangling node from the end to swap with
+        while (read_idx > write_idx) {
+          EMALLOC_STATS_INC_LOOPS(1);
 
-      EMALLOC_STATS_INC_IF(1);
-      if (nodes_were_swap) {
-        const uint32_t start_idx_of_unsorted_node = write_idx;
-
-        EMALLOC_STATS_INC_IF(1);
-        if (start_idx_of_unsorted_node <
-            a_emalloc_ctx->start_idx_of_unsorted_node) {
-          a_emalloc_ctx->start_idx_of_unsorted_node =
-              start_idx_of_unsorted_node;
+          const sEMALLOC_node* read_node = &nodes[read_idx];
+          const uint32_t read_alloc_info_bits =
+              read_node->offset & EMALLOC_ALLOC_INFO_MASK;
+          EMALLOC_STATS_INC_RDWR(1);
 
           EMALLOC_STATS_INC_IF(1);
-          a_emalloc_ctx->offset_before_unsorted_node =
-              (write_idx == 0)
-                  ? (nodes[0].offset & EMALLOC_ALLOC_INFO_MASK)
-                  : (nodes[write_idx - 1].offset & EMALLOC_ALLOC_INFO_MASK);
-          EMALLOC_STATS_INC_RDWR(2);
-        }
-      }
+          if (read_alloc_info_bits != EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
+            // Update start_idx_of_unsorted_node
+            const uint32_t start_idx_of_unsorted_node = write_idx;
 
-      // Check if we've finished searching
-      EMALLOC_STATS_INC_IF(1);
-      if (read_idx == write_idx) {
-        if ((nodes[write_idx].offset & EMALLOC_ALLOC_INFO_MASK) ==
-            EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
+            EMALLOC_STATS_INC_IF(1);
+            if (start_idx_of_unsorted_node <
+                a_emalloc_ctx->start_idx_of_unsorted_node) {
+              a_emalloc_ctx->start_idx_of_unsorted_node =
+                  start_idx_of_unsorted_node;
+
+              EMALLOC_STATS_INC_IF(1);
+              a_emalloc_ctx->offset_before_unsorted_node =
+                  (write_idx == 0)
+                      ? (nodes[0].offset & EMALLOC_ALLOC_INFO_MASK)
+                      : (nodes[write_idx - 1].offset & EMALLOC_ALLOC_INFO_MASK);
+              EMALLOC_STATS_INC_RDWR(2);
+            }
+
+            // Swap nodes
+            nodes[write_idx] = *read_node;
+            EMALLOC_STATS_INC_RDWR(2 * 2);
+
+            a_emalloc_ctx->node_count--;
+            a_emalloc_ctx->allocated_but_not_used_count--;
+            EMALLOC_STATS_INC_RDWR(2);
+
+            read_idx--;
+
+            break;
+          }
+
+          // Skip dangling node at end
           a_emalloc_ctx->node_count--;
           a_emalloc_ctx->allocated_but_not_used_count--;
           EMALLOC_STATS_INC_RDWR(2);
-          break;
+          read_idx--;
         }
-      }
 
-      // First-fit search (nodes[write_idx] may had changed here)
-      EMALLOC_STATS_INC_IF(1);
-      if ((nodes[write_idx].offset & EMALLOC_ALLOC_INFO_MASK) ==
-          EMALLOC_NODE_FREE) {
-        EMALLOC_STATS_INC_RDWR(1);
+        // Check if we've finished searching
         EMALLOC_STATS_INC_IF(1);
-        if (nodes[write_idx].alloc_info >= a_alloc_size) {
-          return write_idx;
+        if (read_idx == write_idx) {
+          if ((nodes[write_idx].offset & EMALLOC_ALLOC_INFO_MASK) ==
+              EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
+            a_emalloc_ctx->node_count--;
+            a_emalloc_ctx->allocated_but_not_used_count--;
+            EMALLOC_STATS_INC_RDWR(2);
+            break;
+          }
         }
-      }
-    } else {
-      // First-fit search
-      EMALLOC_STATS_INC_IF(1);
-      if (write_alloc_info_bits == EMALLOC_NODE_FREE) {
-        EMALLOC_STATS_INC_RDWR(1);
+
+        // First-fit search (nodes[write_idx] may had changed here)
         EMALLOC_STATS_INC_IF(1);
-        if (write_node->alloc_info >= a_alloc_size) {
-          return write_idx;
+        if ((nodes[write_idx].offset & EMALLOC_ALLOC_INFO_MASK) ==
+            EMALLOC_NODE_FREE) {
+          EMALLOC_STATS_INC_RDWR(1);
+          EMALLOC_STATS_INC_IF(1);
+          if (nodes[write_idx].alloc_info >= a_alloc_size) {
+            return write_idx;
+          }
+        }
+      } else {
+        // First-fit search
+        EMALLOC_STATS_INC_IF(1);
+        if (write_alloc_info_bits == EMALLOC_NODE_FREE) {
+          EMALLOC_STATS_INC_RDWR(1);
+          EMALLOC_STATS_INC_IF(1);
+          if (write_node->alloc_info >= a_alloc_size) {
+            return write_idx;
+          }
         }
       }
     }
