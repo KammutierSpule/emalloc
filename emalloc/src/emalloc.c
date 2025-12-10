@@ -30,7 +30,7 @@
 #define EMALLOC_HIGHEST_IDX (0xFFFFFFFF)
 #define EMALLOC_NO_DANGLING (0xFFFFFFFF)
 
-#define EMALLOC_INTERNAL_CHECKS 0
+#define EMALLOC_INTERNAL_CHECKS 1
 
 extern void debug_header(const sEMALLOC_ctx* a_ctx);
 extern void debug_all_nodes_poll(const sEMALLOC_ctx* a_ctx);
@@ -87,7 +87,7 @@ static sEMALLOC_operation_stats* s_pOpStats = NULL;
 #endif
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-static bool emalloc_total_memory_is_valid(sEMALLOC_ctx* a_emalloc_ctx) {
+static bool emalloc_memory_is_valid(sEMALLOC_ctx* a_emalloc_ctx) {
   sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   uint32_t total_size = 0;
@@ -136,7 +136,7 @@ uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
   nodes[0].alloc_info = a_emalloc_configuration->external_memory_size_bytes;
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-  EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+  EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
 
   return EMALLOC_OK;
@@ -221,7 +221,7 @@ static uint32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
     }
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-    EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+    EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
   }
 
@@ -602,7 +602,7 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
       }
     }
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-    EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+    EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
   } else {
     EMALLOC_STATS_INC_IF(1);
@@ -626,7 +626,7 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
         }
       }
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-      EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+      EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
     } else {
       uint8_t shift_state = 0;
@@ -705,7 +705,7 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
       }
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-      EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+      EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
     }
   }
@@ -714,7 +714,7 @@ static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
 uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
                                           uint32_t a_alloc_size) {
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-  EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+  EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
 
   EMALLOC_ASSERT(a_emalloc_ctx);
@@ -841,7 +841,7 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
   }
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-  EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+  EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
 
   EMALLOC_STATS_INC_IF(1);
@@ -889,7 +889,7 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
       }
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
-      EMALLOC_ASSERT(emalloc_total_memory_is_valid(a_emalloc_ctx));
+      EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
 #endif
     }
   }
