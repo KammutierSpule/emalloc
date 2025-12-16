@@ -29,22 +29,6 @@ extern "C" {
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
 
-// INSERTION SORT
-//  Worst-case performance  O( n^2 )
-//  Best-case performance O( n )
-//  Average performance O( n^2 )
-// It gives the best results on simulations.
-
-#define EMALLOC_USE_BUBBLE_SORT 0
-#define EMALLOC_USE_SHELL_SORT 0
-#define EMALLOC_USE_SHELL_SORT_TOKUDA 0
-#define EMALLOC_USE_INSERTION_SORT 1
-#define EMALLOC_USE_INSERTION_SORT_BINARY 0
-#define EMALLOC_USE_INSERTION_SORT_SENTINEL 0
-#define EMALLOC_USE_HEAP_SORT_MAX 0
-
-#define EMALLOC_USE_SEARCH_INTERPOLATION 1
-
 #ifndef EMALLOC_STATISTICS
 #define EMALLOC_STATISTICS 0
 #endif

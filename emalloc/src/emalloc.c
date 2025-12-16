@@ -232,114 +232,17 @@ static uint32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
   return EMALLOC_ERR_NO_EXTERNAL_MEMORY;
 }
 
-#if (EMALLOC_USE_BUBBLE_SORT == 1)
-// Sort nodes by offset (simple bubble sort for clarity)
-static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
-  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-
-  for (uint32_t i = 0; i < (a_emalloc_ctx->node_count - 1); ++i) {
-    EMALLOC_STATS_INC_LOOPS(1);
-
-    for (uint32_t j = 0; j < (a_emalloc_ctx->node_count - i - 1); ++j) {
-      EMALLOC_STATS_INC_LOOPS(1);
-      EMALLOC_STATS_INC_RDWR(2);
-      EMALLOC_STATS_INC_IF(1);
-      if (nodes[j].offset > nodes[j + 1].offset) {
-        sEMALLOC_node temp = nodes[j];
-        nodes[j] = nodes[j + 1];
-        nodes[j + 1] = temp;
-
-        EMALLOC_STATS_INC_RDWR(4 * 2);
-      }
-    }
-  }
-}
-#endif
-
-#if (EMALLOC_USE_SHELL_SORT == 1)
-// Shell sort
-static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
-  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-  const uint32_t n = a_emalloc_ctx->node_count;
-
-  // Rearrange elements at each n/2, n/4, n/8, ... intervals
-  for (uint32_t interval = n / 2; interval > 0; interval /= 2) {
-    EMALLOC_STATS_INC_LOOPS(1);
-
-    for (uint32_t i = interval; i < n; i += 1) {
-      EMALLOC_STATS_INC_LOOPS(1);
-      EMALLOC_STATS_INC_RDWR(2);
-      const sEMALLOC_node temp = nodes[i];
-      uint32_t j = i;
-      for (; (j >= interval); j -= interval) {
-        EMALLOC_STATS_INC_LOOPS(1);
-
-        EMALLOC_STATS_INC_RDWR(2);
-        const sEMALLOC_node temp_j = nodes[j - interval];
-
-        EMALLOC_STATS_INC_IF(1);
-        if (temp_j.offset <= temp.offset) {
-          break;
-        }
-
-        nodes[j] = temp_j;
-        EMALLOC_STATS_INC_RDWR(2);
-      }
-
-      nodes[j] = temp;
-      EMALLOC_STATS_INC_RDWR(2);
-    }
-  }
-}
-#endif
-
-#if (EMALLOC_USE_SHELL_SORT_TOKUDA == 1)
-// Shell sort
-static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
-  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-  const uint32_t n = a_emalloc_ctx->node_count;
-
-  // Generate Tokuda sequence: h[k] = ceil((9^k - 4^k)/(5*4^(k-1)))
-  int32_t gaps[20];
-  int32_t gap_count = 0;
-  int32_t h = 1;
-
-  while (h < n) {
-    EMALLOC_STATS_INC_LOOPS(1);
-    EMALLOC_STATS_INC_RDWR(1);
-    gaps[gap_count++] = h;
-    h = (h * 9 + 4) / 5;  // Approximation of Tokuda formula
-  }
-
-  // Sort using gaps in reverse order
-  for (int32_t g = gap_count - 1; g >= 0; g--) {
-    EMALLOC_STATS_INC_LOOPS(1);
-    int32_t gap = gaps[g];
-    EMALLOC_STATS_INC_RDWR(1);
-
-    for (int i = gap; i < n; i++) {
-      EMALLOC_STATS_INC_LOOPS(1);
-
-      const sEMALLOC_node temp = nodes[i];
-      EMALLOC_STATS_INC_RDWR(2);
-
-      int j = i;
-
-      while ((j >= gap) && (nodes[j - gap].offset > temp.offset)) {
-        EMALLOC_STATS_INC_LOOPS(1);
-
-        nodes[j] = nodes[j - gap];
-        j -= gap;
-        EMALLOC_STATS_INC_RDWR(2 * 2);
-      }
-      nodes[j] = temp;
-      EMALLOC_STATS_INC_RDWR(2);
-    }
-  }
-}
-#endif
-
-#if (EMALLOC_USE_INSERTION_SORT == 1)
+/**
+ * @brief INSERTION SORT
+ *  - Worst-case performance  O( n^2 )
+ *  - Best-case performance O( n )
+ *  - Average performance O( n^2 )
+ * It gives the best results on simulations with tested algorithms.
+ * Other algorithms tested: bubble, shell, shell tokuda, insertion binary,
+ * insertion sentinel, heap sort.
+ *
+ * @param a_emalloc_ctx current context
+ */
 static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
@@ -372,144 +275,19 @@ static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
     nodes[j + 1] = key;
   }
 }
-#endif
 
-#if (EMALLOC_USE_INSERTION_SORT_BINARY == 1)
-static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
-  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-  const uint32_t n = a_emalloc_ctx->node_count;
-
-  for (int i = (a_emalloc_ctx->start_idx_of_unsorted_node + 1); i < n; i++) {
-    EMALLOC_STATS_INC_LOOPS(1);
-
-    EMALLOC_STATS_INC_RDWR(2);
-    const sEMALLOC_node key = nodes[i];
-
-    int left = 0;
-    int right = i - 1;
-
-    // Binary search for correct position
-    while (left <= right) {
-      EMALLOC_STATS_INC_LOOPS(1);
-
-      const int mid = left + ((right - left) / 2);
-
-      EMALLOC_STATS_INC_RDWR(1);
-      EMALLOC_STATS_INC_IF(1);
-      if (nodes[mid].offset > key.offset) {
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-
-    // Shift elements to make room
-    int pos = left;
-    for (int j = i - 1; j >= pos; j--) {
-      EMALLOC_STATS_INC_LOOPS(1);
-
-      nodes[j + 1] = nodes[j];
-      EMALLOC_STATS_INC_RDWR(2 * 2);
-    }
-    nodes[pos] = key;
-    EMALLOC_STATS_INC_RDWR(2);
-  }
-}
-#endif
-
-#if (EMALLOC_USE_INSERTION_SORT_SENTINEL == 1)
-static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
-  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-  const uint32_t n = a_emalloc_ctx->node_count;
-
-  for (uint32_t i = (a_emalloc_ctx->start_idx_of_unsorted_node + 1); i < n;
-       i++) {
-    EMALLOC_STATS_INC_LOOPS(1);
-
-    sEMALLOC_node key;
-
-    EMALLOC_STATS_INC_RDWR(1);
-    key.offset = nodes[i].offset;
-
-    EMALLOC_STATS_INC_RDWR(1);
-    key.alloc_info = nodes[i].alloc_info;
-
-    int32_t j = i - 1;
-
-    while ((j >= 0) && (nodes[j].offset > key.offset)) {
-      EMALLOC_STATS_INC_LOOPS(1);
-      EMALLOC_STATS_INC_IF(1);
-      EMALLOC_STATS_INC_RDWR(1);
-
-      nodes[j + 1] = nodes[j];
-      EMALLOC_STATS_INC_RDWR(2 + 2);
-
-      j--;
-    }
-
-    EMALLOC_STATS_INC_RDWR(2);
-    nodes[j + 1] = key;
-  }
-}
-#endif
-
-#if (EMALLOC_USE_HEAP_SORT_MAX == 1)
-static void node_swap(sEMALLOC_ctx* a_emalloc_ctx, uint32_t i, uint32_t j) {
-  sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-  const sEMALLOC_node temp = nodes[i];
-  nodes[i] = nodes[j];
-  nodes[j] = temp;
-  EMALLOC_STATS_INC_RDWR(4 * 2);
-}
-
-void max_heapify(sEMALLOC_ctx* a_emalloc_ctx, uint32_t n, uint32_t i) {
-  uint32_t largest = i;
-  uint32_t l = (2 * i) + 1;
-  uint32_t r = (2 * i) + 2;
-
-  const sEMALLOC_node* nodes = (const sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-
-  EMALLOC_STATS_INC_RDWR(2);
-  EMALLOC_STATS_INC_IF(2);  // optimize
-  if ((l < n) && (nodes[l].offset > nodes[largest].offset)) {
-    largest = l;
-  }
-
-  EMALLOC_STATS_INC_RDWR(2);
-  EMALLOC_STATS_INC_IF(2);  // optimize
-  if ((r < n) && (nodes[r].offset > nodes[largest].offset)) {
-    largest = r;
-  }
-
-  EMALLOC_STATS_INC_IF(2);
-  if (largest != i) {
-    node_swap(a_emalloc_ctx, i, largest);
-    EMALLOC_STATS_INC_LOOPS(1);
-    max_heapify(a_emalloc_ctx, n, largest);
-  }
-}
-
-static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
-  const sEMALLOC_node* nodes = (const sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-  const uint32_t n = a_emalloc_ctx->node_count;
-
-  for (int i = (n / 2) - 1; i >= 0; i--) {
-    EMALLOC_STATS_INC_LOOPS(1);
-    max_heapify(a_emalloc_ctx, n, i);
-  }
-
-  for (int i = n - 1; i >= 0; i--) {
-    EMALLOC_STATS_INC_LOOPS(1);
-    node_swap(a_emalloc_ctx, i, 0);
-    max_heapify(a_emalloc_ctx, i, 0);
-  }
-}
-#endif
-
-#if (EMALLOC_USE_SEARCH_INTERPOLATION == 1)
+/**
+ * @brief Perform a interpolation method search.
+ * pre-conditions: nodes need to be sort.
+ *
+ * @param a_emalloc_ctx - current context
+ * @param a_offset_to_search - offset value to search
+ * @param a_high_idx
+ * @return uint32_t
+ */
 static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
                                     uint32_t a_offset_to_search,
-                                    uint32_t a_mask, uint32_t a_high_idx) {
+                                    uint32_t a_high_idx) {
   uint32_t lowIdx = 0;
   uint32_t highIdx = a_high_idx;
 
@@ -523,7 +301,7 @@ static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
     EMALLOC_STATS_INC_LOOPS(1);
 
     EMALLOC_STATS_INC_RDWR(1);
-    const uint32_t lowOffset = nodes[lowIdx].offset & a_mask;
+    const uint32_t lowOffset = nodes[lowIdx].offset & ~EMALLOC_ERR_MASK;
 
     // If array has only one (or is the last search) element
     EMALLOC_STATS_INC_IF(1);
@@ -537,7 +315,7 @@ static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
     }
 
     EMALLOC_STATS_INC_RDWR(1);
-    const uint32_t highOffset = nodes[highIdx].offset & a_mask;
+    const uint32_t highOffset = nodes[highIdx].offset & ~EMALLOC_ERR_MASK;
 
     // Estimate position using interpolation formula
     const uint32_t estimatedIdx =
@@ -545,7 +323,8 @@ static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
                   (highOffset - lowOffset));
 
     EMALLOC_STATS_INC_RDWR(1);
-    const uint32_t offsetFromEstimatedIdx = nodes[estimatedIdx].offset & a_mask;
+    const uint32_t offsetFromEstimatedIdx =
+        nodes[estimatedIdx].offset & ~EMALLOC_ERR_MASK;
 
     EMALLOC_STATS_INC_IF(1);
     if (offsetFromEstimatedIdx == a_offset_to_search) {
@@ -564,7 +343,6 @@ static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
 
   return EMALLOC_ERR_OFFSET_NOT_FOUND;
 }
-#endif
 
 static void coalesce(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_released_idx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
@@ -997,12 +775,12 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
 
   EMALLOC_STATS_INC_IF(1);
   if (a_emalloc_ctx->start_idx_of_unsorted_node != EMALLOC_IS_SORTED) {
-    // If offset is below the one we know that all indexes are ordered up there
-    // we don't need to sort and perform only search of ordered part.
     EMALLOC_STATS_INC_IF(1);
     if (a_allocated_offset <= a_emalloc_ctx->offset_before_unsorted_node) {
+      // If the offset to search is below the one we know that all indexes are
+      // ordered up there, we don't need to sort. Only perform search of the
+      // ordered part.
       idx = interpolationSearch(a_emalloc_ctx, a_allocated_offset,
-                                ~EMALLOC_ERR_MASK,
                                 a_emalloc_ctx->start_idx_of_unsorted_node - 1);
       EMALLOC_ASSERT(idx != EMALLOC_ERR_OFFSET_NOT_FOUND);
     } else {
@@ -1016,7 +794,7 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
   EMALLOC_STATS_INC_IF(1);
   if (idx == EMALLOC_ERR_OFFSET_NOT_FOUND) {
     idx = interpolationSearch(a_emalloc_ctx, a_allocated_offset,
-                              ~EMALLOC_ERR_MASK, a_emalloc_ctx->node_count - 1);
+                              a_emalloc_ctx->node_count - 1);
 
     EMALLOC_STATS_INC_IF(1);
     if (idx == EMALLOC_ERR_OFFSET_NOT_FOUND) {
