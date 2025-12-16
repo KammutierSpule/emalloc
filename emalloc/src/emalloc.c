@@ -14,11 +14,9 @@
 
 // Includes
 // /////////////////////////////////////////////////////////////////////////////
-#include "../include/emalloc/emalloc.h"
 #include <assert.h>
+#include <emalloc/emalloc.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
@@ -60,24 +58,24 @@ typedef struct s_emalloc_node {
 static sEMALLOC_statistics s_stats;
 static sEMALLOC_operation_stats* s_pOpStats = NULL;
 
-#define EMALLOC_STATS_INC_IF(n)                               \
-  if (s_pOpStats->n_ifs < (0xFFFFFFFFFFFFFFFF - ((n) - 1))) { \
-    s_pOpStats->n_ifs += (n);                                 \
+#define EMALLOC_STATS_INC_IF(n)                         \
+  if (s_pOpStats->n_ifs < (0xFFFFFFFFFFFFFFFF - (n))) { \
+    s_pOpStats->n_ifs += (n);                           \
   }
 
-#define EMALLOC_STATS_INC_LOOPS(n)                              \
-  if (s_pOpStats->n_loops < (0xFFFFFFFFFFFFFFFF - ((n) - 1))) { \
-    s_pOpStats->n_loops += (n);                                 \
+#define EMALLOC_STATS_INC_LOOPS(n)                        \
+  if (s_pOpStats->n_loops < (0xFFFFFFFFFFFFFFFF - (n))) { \
+    s_pOpStats->n_loops += (n);                           \
   }
 
-#define EMALLOC_STATS_INC_RDWR(n)                                     \
-  if (s_pOpStats->n_nodes_rd_wr < (0xFFFFFFFFFFFFFFFF - ((n) - 1))) { \
-    s_pOpStats->n_nodes_rd_wr += (n);                                 \
+#define EMALLOC_STATS_INC_RDWR(n)                               \
+  if (s_pOpStats->n_nodes_rd_wr < (0xFFFFFFFFFFFFFFFF - (n))) { \
+    s_pOpStats->n_nodes_rd_wr += (n);                           \
   }
 
-#define EMALLOC_STATS_INC_CALLS(n)                      \
-  if (s_pOpStats->n_calls < (0xFFFFFFFF - ((n) - 1))) { \
-    s_pOpStats->n_calls += (n);                         \
+#define EMALLOC_STATS_INC_CALLS(n)                \
+  if (s_pOpStats->n_calls < (0xFFFFFFFF - (n))) { \
+    s_pOpStats->n_calls += (n);                   \
   }
 #else
 #define EMALLOC_STATS_INC_IF(n)
@@ -151,7 +149,7 @@ static uint32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
   sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
   // Start from the end and work backwards
-  for (int32_t i = a_emalloc_ctx->node_count - 1; i >= 0; --i) {
+  for (int32_t i = (int32_t)(a_emalloc_ctx->node_count) - 1; i >= 0; --i) {
     EMALLOC_STATS_INC_LOOPS(1);
 
     const sEMALLOC_node* node_i = &node[i];
@@ -167,7 +165,7 @@ static uint32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
       EMALLOC_STATS_INC_RDWR(1);
 
       // Check adjacent free nodes backwards and calculate total size
-      int32_t j = i - 1;
+      int32_t j = i - 1;  // NOLINT
       while (j >= 0) {
         EMALLOC_STATS_INC_LOOPS(1);
 
@@ -344,10 +342,9 @@ static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
 #if (EMALLOC_USE_INSERTION_SORT == 1)
 static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
-  const uint32_t n = a_emalloc_ctx->node_count;
 
-  for (uint32_t i = (a_emalloc_ctx->start_idx_of_unsorted_node + 1); i < n;
-       i++) {
+  for (uint32_t i = (a_emalloc_ctx->start_idx_of_unsorted_node + 1);
+       i < a_emalloc_ctx->node_count; i++) {
     EMALLOC_STATS_INC_LOOPS(1);
 
     sEMALLOC_node key;
@@ -358,7 +355,7 @@ static void sort_nodes(sEMALLOC_ctx* a_emalloc_ctx) {
     EMALLOC_STATS_INC_RDWR(1);
     key.alloc_info = nodes[i].alloc_info;
 
-    int32_t j = i - 1;
+    int32_t j = (int32_t)(i - 1);  // NOLINT
 
     while ((j >= 0) && (nodes[j].offset > key.offset)) {
       EMALLOC_STATS_INC_LOOPS(1);
@@ -784,7 +781,7 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
 
             // Swap nodes
             nodes[write_idx] = *read_node;
-            EMALLOC_STATS_INC_RDWR(2 * 2);
+            EMALLOC_STATS_INC_RDWR(4);
 
             a_emalloc_ctx->node_count--;
             a_emalloc_ctx->allocated_but_not_used_count--;

@@ -29,7 +29,9 @@ Checks: >
     -cppcoreguidelines-avoid-c-arrays,
     -google-readability-casting,
     -modernize-avoid-c-arrays,
-    -modernize-use-auto
-    -readability-implicit-bool-conversion
+    -modernize-use-auto,
+    -readability-implicit-bool-conversion,
+    -cppcoreguidelines-avoid-non-const-global-variables,
+    -bugprone-easily-swappable-parameters
 
 HeaderFilterRegex: ".*/[common|logging]/.*"
