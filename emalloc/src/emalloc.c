@@ -529,7 +529,7 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
           }
         }
 
-        // Find non-dangling node from the end to swap with
+        // Find non-dangling node from the end (read_idx) to write idx and swap
         while (read_idx > write_idx) {
           EMALLOC_STATS_INC_LOOPS(1);
 
@@ -570,10 +570,11 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
 
             read_idx--;
 
+            // An used node was found, nothing more to do
             break;
           }
 
-          // Skip dangling node at end
+          // Skip/discard dangling node at end
           a_emalloc_ctx->node_count--;
           a_emalloc_ctx->allocated_but_not_used_count--;
           EMALLOC_STATS_INC_RDWR(2);
@@ -631,9 +632,8 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
   }
 
   // If no First-fit found,
-  // try to merge free nodes from end to back
-  uint32_t back = 0;
-  for (uint32_t i = a_emalloc_ctx->node_count - 1; i > back; --i) {
+  // try to merge free nodes from end to begin
+  for (uint32_t i = a_emalloc_ctx->node_count - 1; i > 0; --i) {
     EMALLOC_STATS_INC_LOOPS(1);
 
     EMALLOC_STATS_INC_IF(2);
