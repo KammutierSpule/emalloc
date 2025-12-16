@@ -65,14 +65,12 @@ typedef struct s_emalloc_state {
 } sEMALLOC_ctx;
 
 // Return errors
-typedef enum e_emalloc_err {
-  EMALLOC_ERR_NO_EXTERNAL_MEMORY = 0xFFFFFFFF,
-  EMALLOC_ERR_NO_MORE_FREE_NODES = 0xFFFFFFFE,
-  EMALLOC_ERR_INVALID_PARAMETER = 0xFFFFFFFD,
-  EMALLOC_ERR_ZERO_REQUESTED = 0xFFFFFFFC,
-  EMALLOC_ERR_OFFSET_NOT_FOUND = 0xFFFFFFFB,
-  EMALLOC_OK = 0
-} eEMALLOC_err;
+#define EMALLOC_ERR_NO_EXTERNAL_MEMORY (0xFFFFFFFF)
+#define EMALLOC_ERR_NO_MORE_FREE_NODES (0xFFFFFFFE)
+#define EMALLOC_ERR_INVALID_PARAMETER (0xFFFFFFFD)
+#define EMALLOC_ERR_ZERO_REQUESTED (0xFFFFFFFC)
+#define EMALLOC_ERR_OFFSET_NOT_FOUND (0xFFFFFFFB)
+#define EMALLOC_OK (0)
 
 #define EMALLOC_ERR_MASK (0x0000000F)
 
@@ -119,7 +117,7 @@ typedef struct s_emalloc_stats {
   sEMALLOC_operation_stats free;
 } sEMALLOC_statistics;
 
-void emalloc_reset_statistics();
+void emalloc_reset_statistics(void);
 void emalloc_get_statistics(sEMALLOC_statistics* a_out_statistics);
 #endif
 

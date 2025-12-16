@@ -334,5 +334,6 @@
   // Font used on Terminal by "oh my posh"
   // You have to install Nerd Fonts on your PC:
   // https://ohmyposh.dev/docs/installation/fonts
-  "terminal.integrated.fontFamily": "MesloLGM Nerd Font Mono"
+  "terminal.integrated.fontFamily": "MesloLGM Nerd Font Mono",
+  "gcovViewer.highlightMissedLines": true
 }

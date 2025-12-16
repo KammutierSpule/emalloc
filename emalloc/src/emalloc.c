@@ -550,10 +550,13 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
                   start_idx_of_unsorted_node;
 
               EMALLOC_STATS_INC_IF(1);
-              a_emalloc_ctx->offset_before_unsorted_node =
-                  (write_idx == 0)
-                      ? (nodes[0].offset & EMALLOC_ALLOC_INFO_MASK)
-                      : (nodes[write_idx - 1].offset & EMALLOC_ALLOC_INFO_MASK);
+              if (write_idx == 0) {
+                a_emalloc_ctx->offset_before_unsorted_node =
+                    nodes[0].offset & EMALLOC_ALLOC_INFO_MASK;
+              } else {
+                a_emalloc_ctx->offset_before_unsorted_node =
+                    (nodes[write_idx - 1].offset & EMALLOC_ALLOC_INFO_MASK);
+              }
               EMALLOC_STATS_INC_RDWR(2);
             }
 
@@ -831,7 +834,7 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
 }
 
 #if (EMALLOC_STATISTICS == 1)
-void emalloc_reset_statistics() {
+void emalloc_reset_statistics(void) {
   memset(&s_stats, 0, sizeof(s_stats));
 }
 

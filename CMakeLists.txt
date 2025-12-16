@@ -8,6 +8,9 @@ add_compile_definitions(EMALLOC_USE_ASSERT=1)
 add_subdirectory(emalloc/)
 add_subdirectory(emalloc/test)
 
+list(APPEND CMAKE_C_FLAGS "-g --coverage")
+list(APPEND CMAKE_CXX_FLAGS "-g --coverage")
+
 # ##############################################################################
 # * From: https://github.com/abdes/asap
 # * License: BSD-3-Clause license

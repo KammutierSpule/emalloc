@@ -36,6 +36,8 @@ add_executable(RunAllTests ${TEST_SOURCES})
 # Link against CppUTest
 target_link_libraries(RunAllTests PRIVATE emalloc CppUTest CppUTestExt)
 
+target_link_options(RunAllTests PRIVATE --coverage)
+
 # Include directories
 target_include_directories(RunAllTests
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/emalloc)

@@ -8,3 +8,6 @@ target_include_directories(
   emalloc
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_compile_options(emalloc PRIVATE -Wall -Wextra -Wpedantic -Werror
+                                       --coverage)
