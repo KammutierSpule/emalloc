@@ -78,7 +78,7 @@ typedef struct s_emalloc_state {
  * @brief Initialize emalloc context
  *
  * @param a_emalloc_ctx context to initialize
- * @param sEMALLOC_cfg pointer to configuration
+ * @param a_emalloc_configuration pointer to configuration
  * @return EMALLOC_ERR
  */
 uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
@@ -89,8 +89,9 @@ uint32_t emalloc_init(sEMALLOC_ctx* a_emalloc_ctx,
  *
  * @param a_emalloc_ctx current context
  * @param a_alloc_size desired size to allocate
- * @retval uint32_t offset (starts at 0) of the external storage to be used.
- * @retval if return EMALLOC_ERR_MASK is no zero, it is an error. Check defines EMALLOC_ERR_*
+ * @retval uint32_t offset, 16byte aligned, (starts at 0) of the external
+ * storage to be used to write the requested a_alloc_size.
+ * @retval May return an EMALLOC_ERR_* error when something fails.
  */
 uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size);
 
@@ -99,8 +100,10 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size);
  *
  * @param a_emalloc_ctx current context
  * @param a_allocated_offset desired offset to deallocate
- * @retval 0 if ok
- * @retval if return EMALLOC_ERR_MASK is no zero, it is an error. Check defines EMALLOC_ERR_*
+ * @retval EMALLOC_OK if ok
+ * @retval EMALLOC_ERR_INVALID_PARAMETER
+ * @retval EMALLOC_ERR_OFFSET_NOT_FOUND - if addres was not found or is already
+ * free
  */
 uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_allocated_offset);
 
