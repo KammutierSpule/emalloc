@@ -719,6 +719,8 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
   sEMALLOC_node* nodes = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
   sEMALLOC_node* node = &nodes[idx_found];
 
+  EMALLOC_ASSERT(is_node_free(node));
+
   const uint32_t offset = node->offset & ~EMALLOC_ALLOC_INFO_MASK;
   node->offset |= EMALLOC_NODE_VARIABLE_SIZE;
   EMALLOC_STATS_INC_RDWR(2);
@@ -741,6 +743,10 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
       nodes[new_free_node_idx].alloc_info = node->alloc_info - a_alloc_size;
       node->alloc_info = a_alloc_size;
 
+      // free node count does not change here,
+      // because one (free) node was allocated and a new (free) node is created.
+      // So, -1 + 1 = 0
+
       EMALLOC_STATS_INC_RDWR(5);
 
       EMALLOC_STATS_INC_IF(1);
@@ -758,7 +764,16 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
           EMALLOC_STATS_INC_RDWR(2);
         }
       }
+    } else {
+      EMALLOC_ASSERT(a_emalloc_ctx->node_free_count > 0);
+      a_emalloc_ctx->node_free_count--;
+      EMALLOC_STATS_INC_RDWR(1);
     }
+  } else {
+    EMALLOC_ASSERT(node->alloc_info == a_alloc_size);
+    EMALLOC_ASSERT(a_emalloc_ctx->node_free_count > 0);
+    a_emalloc_ctx->node_free_count--;
+    EMALLOC_STATS_INC_RDWR(1);
   }
 
   a_emalloc_ctx->external_allocated_bytes += a_alloc_size;
