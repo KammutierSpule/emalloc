@@ -86,18 +86,60 @@ static sEMALLOC_operation_stats* s_pOpStats = NULL;
 
 #if (EMALLOC_INTERNAL_CHECKS == 1)
 static bool emalloc_memory_is_valid(sEMALLOC_ctx* a_emalloc_ctx) {
+  if (a_emalloc_ctx->node_count > a_emalloc_ctx->nodes_poll_length) {
+    return false;
+  }
+
+  if (a_emalloc_ctx->start_idx_of_unsorted_node != EMALLOC_IS_SORTED) {
+    if (a_emalloc_ctx->start_idx_of_unsorted_node >=
+        a_emalloc_ctx->node_count) {
+      return false;
+    }
+  }
+
   sEMALLOC_node* node = (sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
-  uint32_t total_size = 0;
+  uint32_t total_size_bytes = 0;  // free + allocated
+  uint32_t total_nodes_free = 0;  // free nodes
+  uint32_t total_allocated_size_bytes = 0;
+  uint32_t allocated_but_not_used_count = 0;
 
   for (uint32_t i = 0; i < a_emalloc_ctx->node_count; i++) {
     const uint32_t alloc_info = node[i].offset & EMALLOC_ALLOC_INFO_MASK;
     if (alloc_info != EMALLOC_NODE_ALLOCATED_BUT_NOT_USED) {
-      total_size += node[i].alloc_info;
+      const uint32_t size_bytes_node = node[i].alloc_info;
+      total_size_bytes += size_bytes_node;
+
+      if (alloc_info == EMALLOC_NODE_VARIABLE_SIZE) {
+        total_allocated_size_bytes += size_bytes_node;
+      }
+    } else {
+      allocated_but_not_used_count++;
+    }
+
+    if (alloc_info == EMALLOC_NODE_FREE) {
+      total_nodes_free++;
     }
   }
 
-  return total_size == a_emalloc_ctx->external_memory_size_bytes;
+  if (total_allocated_size_bytes != a_emalloc_ctx->external_allocated_bytes) {
+    return false;
+  }
+
+  if (allocated_but_not_used_count !=
+      a_emalloc_ctx->allocated_but_not_used_count) {
+    return false;
+  }
+
+  if (total_nodes_free != a_emalloc_ctx->node_free_count) {
+    return false;
+  }
+
+  if (total_size_bytes != a_emalloc_ctx->external_memory_size_bytes) {
+    return false;
+  }
+
+  return true;
 }
 #endif
 
@@ -214,6 +256,10 @@ static uint32_t find_free_node(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_size) {
       // First-fit
       EMALLOC_STATS_INC_IF(1);
       if (total_size >= a_size) {
+#if (EMALLOC_INTERNAL_CHECKS == 1)
+        EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
+#endif
+
         return merge_start_idx;
       }
     }
@@ -600,6 +646,10 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
           EMALLOC_STATS_INC_RDWR(1);
           EMALLOC_STATS_INC_IF(1);
           if (nodes[write_idx].alloc_info >= a_alloc_size) {
+#if (EMALLOC_INTERNAL_CHECKS == 1)
+            EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
+#endif
+
             return write_idx;
           }
         }
@@ -610,6 +660,10 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
           EMALLOC_STATS_INC_RDWR(1);
           EMALLOC_STATS_INC_IF(1);
           if (write_node->alloc_info >= a_alloc_size) {
+#if (EMALLOC_INTERNAL_CHECKS == 1)
+            EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
+#endif
+
             return write_idx;
           }
         }
@@ -671,6 +725,10 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
         // with Best-fit)
         EMALLOC_STATS_INC_IF(1);
         if (new_free_space >= a_alloc_size) {
+#if (EMALLOC_INTERNAL_CHECKS == 1)
+          EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
+#endif
+
           return i - 1;
         }
       }
@@ -789,6 +847,10 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
   // when no more nodes left, the node allocated has all the remain size
   a_emalloc_ctx->external_allocated_bytes += node->alloc_info;
   EMALLOC_STATS_INC_RDWR(1);
+
+#if (EMALLOC_INTERNAL_CHECKS == 1)
+  EMALLOC_ASSERT(emalloc_memory_is_valid(a_emalloc_ctx));
+#endif
 
   return offset;
 }
