@@ -785,7 +785,9 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
     EMALLOC_STATS_INC_RDWR(1);
   }
 
-  a_emalloc_ctx->external_allocated_bytes += a_alloc_size;
+  // NOTE: usually node->alloc_info == a_alloc_size, but,
+  // when no more nodes left, the node allocated has all the remain size
+  a_emalloc_ctx->external_allocated_bytes += node->alloc_info;
   EMALLOC_STATS_INC_RDWR(1);
 
   return offset;
