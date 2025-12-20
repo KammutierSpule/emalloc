@@ -633,7 +633,7 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
 
   // If no First-fit found,
   // try to merge free nodes from end to begin
-  for (uint32_t i = a_emalloc_ctx->node_count - 1; i > 0; --i) {
+  for (int32_t i = (int32_t)(a_emalloc_ctx->node_count - 1); i > 0; --i) {
     EMALLOC_STATS_INC_LOOPS(1);
 
     EMALLOC_STATS_INC_IF(2);
