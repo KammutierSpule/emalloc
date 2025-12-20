@@ -115,9 +115,13 @@ TEST(AllocFree, OutOfMemoryAfterMultipleAllocations) {
 }
 
 TEST(AllocFree, FreeInvalidOffsetDoesNotCrash) {
-  CHECK_EQUAL(EMALLOC_ERR_OFFSET_NOT_FOUND, emalloc_free(&emalloc_ctx, 9999));
-  CHECK_EQUAL(EMALLOC_ERR_OFFSET_NOT_FOUND,
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER, emalloc_free(&emalloc_ctx, 9999));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
               emalloc_free(&emalloc_ctx, 0xFFFFFFFF));
+  CHECK_EQUAL(EMALLOC_ERR_OFFSET_NOT_FOUND,
+              emalloc_free(&emalloc_ctx, 9999 & ~0x0F));
+  CHECK_EQUAL(EMALLOC_ERR_OFFSET_NOT_FOUND,
+              emalloc_free(&emalloc_ctx, 0xFFFFFFF0));
 }
 
 TEST(AllocFree, FreeInvalidOffsetsAfterAlloc) {
