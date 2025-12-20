@@ -636,8 +636,17 @@ uint32_t de_dangling_and_search_first_fit(sEMALLOC_ctx* a_emalloc_ctx,
   for (int32_t i = (int32_t)(a_emalloc_ctx->node_count - 1); i > 0; --i) {
     EMALLOC_STATS_INC_LOOPS(1);
 
-    EMALLOC_STATS_INC_IF(2);
-    if (is_node_free(&nodes[i - 1]) && is_node_free(&nodes[i])) {
+    const bool is_i_m1_free = is_node_free(&nodes[i - 1]);
+
+    EMALLOC_STATS_INC_IF(1);
+    if (!is_i_m1_free) {
+      // No need to retest this index again on thext loop.
+      i--;  // if -1 index is free, it is possible to skip the next one
+      continue;
+    }
+
+    EMALLOC_STATS_INC_IF(1);
+    if (is_node_free(&nodes[i])) {
       EMALLOC_STATS_INC_IF(1);
       EMALLOC_STATS_INC_RDWR(3);
       if ((nodes[i - 1].offset + nodes[i - 1].alloc_info) == nodes[i].offset) {
