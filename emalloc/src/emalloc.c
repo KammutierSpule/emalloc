@@ -339,6 +339,22 @@ static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
 
   const sEMALLOC_node* nodes = (const sEMALLOC_node*)a_emalloc_ctx->nodes_poll;
 
+  EMALLOC_STATS_INC_RDWR(1);
+  const uint32_t lowestOffset = nodes[lowIdx].offset & ~EMALLOC_ERR_MASK;
+
+  EMALLOC_STATS_INC_IF(1);
+  if (a_offset_to_search < lowestOffset) {
+    return EMALLOC_ERR_OFFSET_NOT_FOUND;
+  }
+
+  EMALLOC_STATS_INC_RDWR(1);
+  const uint32_t highestOffset = nodes[highIdx].offset & ~EMALLOC_ERR_MASK;
+
+  EMALLOC_STATS_INC_IF(1);
+  if (a_offset_to_search > highestOffset) {
+    return EMALLOC_ERR_OFFSET_NOT_FOUND;
+  }
+
   // Assume values inside range only,
   // they will return EMALLOC_ERR_OFFSET_NOT_FOUND anyway, but will take longer.
 
@@ -362,6 +378,8 @@ static uint32_t interpolationSearch(const sEMALLOC_ctx* a_emalloc_ctx,
 
     EMALLOC_STATS_INC_RDWR(1);
     const uint32_t highOffset = nodes[highIdx].offset & ~EMALLOC_ERR_MASK;
+
+    EMALLOC_ASSERT(highOffset > lowOffset);
 
     // Estimate position using interpolation formula
     const uint32_t estimatedIdx =
