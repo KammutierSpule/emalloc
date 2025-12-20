@@ -749,6 +749,11 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
 #endif
 
   EMALLOC_STATS_INC_IF(1);
+  if (a_emalloc_ctx == NULL) {
+    return EMALLOC_ERR_INVALID_PARAMETER;
+  }
+
+  EMALLOC_STATS_INC_IF(1);
   if (a_alloc_size == 0) {
     return EMALLOC_ERR_ZERO_REQUESTED;
   }
@@ -861,6 +866,15 @@ uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
   s_pOpStats = &s_stats.free;
   EMALLOC_STATS_INC_CALLS(1);
 #endif
+  EMALLOC_STATS_INC_IF(1);
+  if (a_emalloc_ctx == NULL) {
+    return EMALLOC_ERR_INVALID_PARAMETER;
+  }
+
+  EMALLOC_STATS_INC_IF(1);
+  if ((a_allocated_offset & EMALLOC_ALLOC_INFO_MASK) != 0) {
+    return EMALLOC_ERR_INVALID_PARAMETER;
+  }
 
   uint32_t idx = EMALLOC_ERR_OFFSET_NOT_FOUND;
 

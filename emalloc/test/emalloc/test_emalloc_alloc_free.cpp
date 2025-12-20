@@ -120,6 +120,46 @@ TEST(AllocFree, FreeInvalidOffsetDoesNotCrash) {
               emalloc_free(&emalloc_ctx, 0xFFFFFFFF));
 }
 
+TEST(AllocFree, FreeInvalidOffsetsAfterAlloc) {
+  uint32_t offset = emalloc_alloc(&emalloc_ctx, 256);
+
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 1));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 2));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 3));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 4));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 5));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 6));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 7));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 8));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 9));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 10));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 11));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 12));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 13));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 14));
+  CHECK_EQUAL(EMALLOC_ERR_INVALID_PARAMETER,
+              emalloc_free(&emalloc_ctx, offset + 15));
+  CHECK_EQUAL(EMALLOC_ERR_OFFSET_NOT_FOUND,
+              emalloc_free(&emalloc_ctx, offset + 16));
+  CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offset + 0));
+  CHECK_EQUAL(EMALLOC_ERR_OFFSET_NOT_FOUND,
+              emalloc_free(&emalloc_ctx, offset + 0));
+}
+
 TEST(AllocFree, DoubleFreeDoesNotCorruptMemory) {
   uint32_t offset = emalloc_alloc(&emalloc_ctx, 256);
   CHECK_EQUAL(EMALLOC_OK, emalloc_free(&emalloc_ctx, offset));
