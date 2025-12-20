@@ -335,5 +335,8 @@
   // You have to install Nerd Fonts on your PC:
   // https://ohmyposh.dev/docs/installation/fonts
   "terminal.integrated.fontFamily": "MesloLGM Nerd Font Mono",
-  "gcovViewer.highlightMissedLines": true
+  "gcovViewer.highlightMissedLines": true,
+  // Disable terminal integration
+  "terminal.integrated.suggest.enabled": false,
+  "terminal.integrated.shellIntegration.enabled": false
 }
