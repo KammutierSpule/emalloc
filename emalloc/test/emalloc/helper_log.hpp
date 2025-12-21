@@ -1,0 +1,35 @@
+// /////////////////////////////////////////////////////////////////////////////
+/// @file benchmark_tests.cpp
+/// @brief ./build/emalloc/test/RunAllTests -g BenchmarkTests
+///
+/// @par  Plataform Target: Tests
+///
+/// @copyright (C) 2025 Mario Luzeiro All rights reserved.
+/// @author Mario Luzeiro <mluzeiro@ua.pt>
+///
+/// @par  License: Distributed under the 3-Clause BSD License. See accompanying
+/// file LICENSE or a copy at https://opensource.org/licenses/BSD-3-Clause
+/// SPDX-License-Identifier: BSD-3-Clause
+///
+// /////////////////////////////////////////////////////////////////////////////
+
+// Includes
+// /////////////////////////////////////////////////////////////////////////////
+#include <emalloc/emalloc.h>
+
+// Function declaration
+// /////////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void debug_header(const sEMALLOC_ctx* a_ctx);
+void debug_all_nodes_poll(const sEMALLOC_ctx* a_ctx);
+
+#ifdef __cplusplus
+};
+#endif
+
+// EOF
+// /////////////////////////////////////////////////////////////////////////////

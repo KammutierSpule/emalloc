@@ -1,0 +1,70 @@
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-illegal-windows-names
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: trailing-whitespace
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.3.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []
+
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+    - id: cmake-format
+      additional_dependencies: [pyyaml>=5.1]
+
+  - repo: https://github.com/cpplint/cpplint
+    rev: 2.0.2
+    hooks:
+      - id: cpplint
+        args:
+        # Exceptions:
+          - --filter=-build/header_guard,-build/include_subdir,-runtime/reference,-whitespace/parens
+
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: cppcheck
+        args: [
+          "--enable=all",
+          "--max-ctu-depth=4",
+          "--platform=mips32",
+          "--std=c99",
+          "--std=c++14",
+          "--inline-suppr",
+          "--suppress=unmatchedSuppression",
+          "--suppress=missingIncludeSystem",
+          "--suppress=checkersReport",
+          "--suppress=unusedFunction",
+          "--suppress=missingInclude"
+        ]
+
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+    - id: forbid-binary
+    - id: require-ascii
+      exclude: |
+        (?x)^(
+          README.md
+        )$
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.5
+    hooks:
+    - id: clang-format
+      types_or: [c++, c]
