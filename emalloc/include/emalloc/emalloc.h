@@ -29,6 +29,14 @@ extern "C" {
 // Definitions
 // /////////////////////////////////////////////////////////////////////////////
 
+// https://semver.org/
+// "MAJOR version when you make incompatible API changes
+//  MINOR version when you add functionality in a backward compatible manner
+//  PATCH version when you make backward compatible bug fixes"
+#define EMALLOC_VERSION_MAJOR (1)
+#define EMALLOC_VERSION_MINOR (0)
+#define EMALLOC_VERSION_PATCH (0)
+
 #ifndef EMALLOC_STATISTICS
 #define EMALLOC_STATISTICS 0
 #endif
