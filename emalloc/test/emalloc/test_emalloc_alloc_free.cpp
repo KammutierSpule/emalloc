@@ -22,7 +22,7 @@
 
 // clang-format off
 // NOLINTBEGIN
-TEST_GROUP( AllocFree ){
+TEST_GROUP(AllocFree) {
   static const uint32_t MAX_NODES = 32;
   static const uint32_t EXT_RAM_SIZE = 4096;
 

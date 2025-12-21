@@ -28,18 +28,12 @@
 
 // clang-format off
 // NOLINTBEGIN
-TEST_GROUP( Initialization ){
-	void setup()
-	{
+TEST_GROUP(Initialization) {
+  void setup() {
+  }
 
-	}
-
-	void teardown()
-	{
-
-	}
-
-
+  void teardown() {
+  }
 };
 // NOLINTEND
 // clang-format on
