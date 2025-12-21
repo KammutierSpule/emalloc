@@ -28,7 +28,7 @@
 #define EMALLOC_HIGHEST_IDX (0xFFFFFFFF)
 #define EMALLOC_NO_DANGLING (0xFFFFFFFF)
 
-#define EMALLOC_INTERNAL_CHECKS 1
+#define EMALLOC_INTERNAL_CHECKS 0
 
 extern void debug_header(const sEMALLOC_ctx* a_ctx);
 extern void debug_all_nodes_poll(const sEMALLOC_ctx* a_ctx);
