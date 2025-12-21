@@ -878,6 +878,14 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size) {
   return offset;
 }
 
+uint32_t emalloc_get_allocated_size_bytes(const sEMALLOC_ctx* a_emalloc_ctx) {
+  if (a_emalloc_ctx) {
+    return a_emalloc_ctx->external_allocated_bytes;
+  }
+
+  return EMALLOC_ERR_INVALID_PARAMETER;
+}
+
 uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx,
                       uint32_t a_allocated_offset) {
 #if (EMALLOC_STATISTICS == 1)

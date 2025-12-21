@@ -107,6 +107,15 @@ uint32_t emalloc_alloc(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_alloc_size);
  */
 uint32_t emalloc_free(sEMALLOC_ctx* a_emalloc_ctx, uint32_t a_allocated_offset);
 
+/**
+ * @brief Get allocated size bytes
+ *
+ * @param a_emalloc_ctx current context
+ * @return uint32_t size in bytes of allocated memory
+ * @retval EMALLOC_ERR_INVALID_PARAMETER if context is NULL
+ */
+uint32_t emalloc_get_allocated_size_bytes(const sEMALLOC_ctx* a_emalloc_ctx);
+
 #if (EMALLOC_STATISTICS == 1)
 typedef struct s_emalloc_operation_stats {
   uint32_t n_calls;
