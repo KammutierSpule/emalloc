@@ -26,7 +26,7 @@ Traditional memory allocation algorithms store metadata (such as allocation tree
 
 In order to use this library in your project you only need two files: [emalloc.h](./emalloc/include/emalloc.h) and [emalloc.c](./emalloc/src/emalloc.c).
 
-You shall not use the CMakeLists.txt present on this project to integrated it on your project.
+You shall not use the CMakeLists.txt present on this project to integrated it on your project. It is only used for development purposes.
 
 ### Build tests and development
 
@@ -316,12 +316,37 @@ uint32_t safe_alloc(sEMALLOC_ctx* ctx, uint32_t size) {
 - Alignment: Fixed at 16 bytes (not configurable at runtime)
 - Statistics are global when enabled (not per-context)
 
+## Profiling
+
+Raspberry pico RP2040 @125MHz
+https://github.com/KammutierSpule/emalloc-rp2040-profile
+
+### #comparison
+
+Test for 2048 max nodes.
+
+emalloc.alloc average 1093 ... 4174 cycles (8.7 ... 33.4us)
+emalloc.free average 1754 ... 3891 cycles (14.0 ... 31.1us)
+
+freertos.alloc average ~308 cycles (2.5us)
+freertos.free average ~341 cycles (2.7us)
+NOTE: freertos.alloc and free is O(1) ? with some jitter.
+
+libc.alloc average ~393 cycles (3.0us)
+libc.free average ~350 cycles (2.8us)
+NOTE: libc.alloc and free is almost O(1) all the times with very little jitter.
+
+Conclusion: emalloc.alloc and free is 3.5x ... 14x slower in comparison to other allocations.
+Worse case measured was about 1ms. See test log for more info.
+
+**NOTE:** This comparison does not directly evaluate the algorithms themselves, as their underlying mechanisms differ significantly. For instance, in conventional memory allocators where memory is address-mapped, the allocation metadata is typically stored adjacent to the allocated data. For example, the metadata for a node might be located at `allocated address - 1`. In contrast, **emalloc** separates metadata from the managed memory pool, which is a fundamental design difference that impacts performance characteristics.
+
 ## License
 
 This project is licensed under the **BSD 3-Clause License**. See the [LICENSE](LICENSE) file for details.
 
 ```
-Copyright (C) 2025 Mario Luzeiro
+Copyright (C) 2026 Mario Luzeiro
 SPDX-License-Identifier: BSD-3-Clause
 ```
 
@@ -360,6 +385,16 @@ Email: <mluzeiro@ua.pt>
 ## Support
 
 For questions, issues, or feature requests, please open an issue on GitHub.
+
+## Development Investment
+
+Open source software doesn't come free. This project represents **75 hours** of development time.
+
+**Time Breakdown:** Core development (24 hrs) • Testing, improvements and bug fixing (24 hrs) • Profiling (15 hrs) • Documentation (6 hrs) • Research (6 hrs)
+
+**Appreciate this work?** ⭐ Star the repo • 🐛 Report issues • 💝 [Sponsor/donate]
+
+**Need consulting?** I'm available for custom software development and consulting services. [Contact me](mailto:mrluzeiro@ua.pt).
 
 ---
 
