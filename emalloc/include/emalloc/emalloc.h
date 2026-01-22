@@ -43,11 +43,10 @@ extern "C" {
 
 #ifndef EMALLOC_USE_ASSERT
 #define EMALLOC_USE_ASSERT 0
-#define EMALLOC_ASSERT()
 #endif
 
 #if (EMALLOC_USE_ASSERT == 0)
-#define EMALLOC_ASSERT()
+#define EMALLOC_ASSERT(a)
 #else
 #include <assert.h>
 #define EMALLOC_ASSERT(a) assert(a)
