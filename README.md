@@ -346,7 +346,7 @@ Worse case measured was about 1ms. See test log for more info.
 This project is licensed under the **BSD 3-Clause License**. See the [LICENSE](LICENSE) file for details.
 
 ```
-Copyright (C) 2025 Mario Luzeiro
+Copyright (C) 2026 Mario Luzeiro
 SPDX-License-Identifier: BSD-3-Clause
 ```
 
@@ -385,6 +385,16 @@ Email: <mluzeiro@ua.pt>
 ## Support
 
 For questions, issues, or feature requests, please open an issue on GitHub.
+
+## Development Investment
+
+Open source software doesn't come free. This project represents **75 hours** of development time.
+
+**Time Breakdown:** Core development (24 hrs) • Testing, improvements and bug fixing (24 hrs) • Profiling (15 hrs) • Documentation (6 hrs) • Research (6 hrs)
+
+**Appreciate this work?** ⭐ Star the repo • 🐛 Report issues • 💝 [Sponsor/donate]
+
+**Need consulting?** I'm available for custom software development and consulting services. [Contact me](mailto:mrluzeiro@ua.pt).
 
 ---
 
